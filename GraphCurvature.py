@@ -26,16 +26,21 @@ class GraphCurvature:
         """
         Main function for computing graph curvature. First compute edge curvatures, then nodal curvatures.
 
+        The compute_total_curvature function computes the sum of nodal curvatures, weighted by node weights.
+
         """
         # Compute curvature for all edges
         edge_curvatures = self._compute_edge_curvatures()
+
         # Assign edge curvatures to graph, G
         nx.set_edge_attributes(self.G, edge_curvatures, 'edge_curvature')
+
         # Compute nodal curvatures
         for node in self.G.nodes():
             self.G.nodes[node]['curvature'] = sum(
                 [self.G[node][neighbor]['edge_curvature'] / self.G.degree(node) for neighbor in
                  self.G.neighbors(node)])
+
         self.nodal_curvatures = pd.DataFrame(self.G._node).T
 
     def _compute_edge_curvatures(self):
