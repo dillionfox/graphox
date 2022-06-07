@@ -1,16 +1,16 @@
 import functools
 import math
-
+import ot
+import heapq
 import multiprocessing as mp
 import networkit as nk
 import networkx as nx
 import numpy as np
 import pandas as pd
-import ot
 
 
 class GraphCurvature:
-    def __init__(self, G: nx.Graph, n_procs=mp.cpu_count(), alpha=0.5):
+    def __init__(self, G: nx.Graph, n_procs=mp.cpu_count(), alpha=0.5, max_nodes_in_heap=3000):
         self.G = G.copy()
         self.proc = n_procs
         self.alpha = alpha
@@ -18,6 +18,8 @@ class GraphCurvature:
         self._remove_self_loops()
         self.all_pairs_shortest_path = None
         self.nodal_curvatures = None
+        self.use_heap = True
+        self.max_nodes_in_heap = max_nodes_in_heap
 
     def __str__(self):
         return """Very basic class for computing graph curvature from a weighted NetworkX graph"""
@@ -110,11 +112,22 @@ class GraphCurvature:
         if not list(G_nk.iterNeighbors(node)):
             return [1], [node]
 
-        # Get sum of distributions from x's all neighbors
-        weight_node_pair = [(math.e ** (-G_nk.weight(node, nbr) ** 2), nbr) for nbr in list(G_nk.iterNeighbors(node))]
+        if not self.use_heap:
+            # Get sum of distributions from x's all neighbors
+            weight_node_pair = [(math.e ** (-G_nk.weight(node, nbr) ** 2), nbr) for nbr in list(G_nk.iterNeighbors(node))]
 
-        # Compute sum of weights from neighbors
-        nbr_edge_weight_sum = sum([x[0] for x in weight_node_pair])
+            # Compute sum of weights from neighbors
+            nbr_edge_weight_sum = sum([x[0] for x in weight_node_pair])
+        else:
+            weight_node_pair = []
+            for nbr in list(G_nk.iterNeighbors(node)):
+                weight = math.e ** (-G_nk.weight(node, nbr) ** 2)
+                if len(weight_node_pair) < self.max_nodes_in_heap:
+                    heapq.heappush(weight_node_pair, (weight, nbr))
+                else:
+                    # print('Heap push/pop')
+                    heapq.heappushpop(weight_node_pair, (weight, nbr))
+            nbr_edge_weight_sum = sum([x[0] for x in weight_node_pair])
 
         # Compute weighted distribution of pairs
         distributions = [(1.0 - self.alpha) * w / nbr_edge_weight_sum for w, _ in
