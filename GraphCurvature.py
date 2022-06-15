@@ -17,7 +17,7 @@ class GraphCurvature:
         self._check_edge_weights()
         self._remove_self_loops()
         self.all_pairs_shortest_path = None
-        self.nodal_curvatures = None
+        self.scalar_curvatures = None
         self.use_heap = True
         self.max_nodes_in_heap = max_nodes_in_heap
 
@@ -43,7 +43,7 @@ class GraphCurvature:
                 [self.G[node][neighbor]['edge_curvature'] / self.G.degree(node) for neighbor in
                  self.G.neighbors(node)])
 
-        self.nodal_curvatures = pd.DataFrame(self.G._node).T
+        self.scalar_curvatures = pd.DataFrame(self.G._node).T
 
     def _compute_edge_curvatures(self):
         """
@@ -138,26 +138,60 @@ class GraphCurvature:
         return distributions + [self.alpha], [x[1] for x in weight_node_pair] + [node]
 
     def _make_neighbor_weights_df(self, node_weights):
-        links = pd.DataFrame(self.G.edges, columns=['gene1', 'gene2'])
+        """
+        Construct dataframe containing scalar curvature for each gene (computed from edge contractions)
+        and gene weights from patient omics data.
+        
+        """
+        
+        # Create symmetrized (redundant) list of edges
+        links = pd.concat([pd.DataFrame(self.G.edges, columns=['gene1', 'gene2']), 
+                           pd.DataFrame(self.G.edges, columns=['gene2', 'gene1'])]).reset_index(drop=True)
+        
+        # This should not drop anything
+        links.drop_duplicates(subset=['gene1', 'gene2'], inplace=True)
+        
+        # Groupby on 'gene1' to get all neighbors for all genes. Because edge list was symmetrized,
+        # this catches all possible neighbors for each gene. Replace gene names with associated
+        # patient omics weights.
         df_nei_nws = links.groupby('gene1')['gene2'].apply(list).apply(
             lambda x: [node_weights[_] for _ in x]).reset_index()
+        
+        # Assign column names
         df_nei_nws.columns = ['gene', 'neighbor_weights']
-        df_nodes = self.nodal_curvatures.merge(df_nei_nws, right_on='gene', left_index=True)
+        
+        # Merge neighboring patient-omics weights with scalar curvature
+        df_nodes = self.scalar_curvatures.merge(df_nei_nws, right_on='gene', left_on='gene')
+        
+        # Lookup patient omics value for each node (gene)
         df_nodes['weight'] = df_nodes['gene'].apply(lambda x: node_weights[x])
         return df_nodes
 
-    def compute_total_curvature(self, node_weights):
+    def compute_total_curvature(self, node_weights: dict):
+        """
+        
+        
+        """
+        
+        # Make sure the user passed in a dictionary with the correct number of keys (one per gene)
         self._check_node_weights(node_weights)
+        
+        # Construct node-centric dataframe containing patient omics (node weights) data and 
+        # scalar curvatures
         df_nodes = self._make_neighbor_weights_df(node_weights)
-
+        
+        # Scale the node weight (omics) by the sum of the weights of the neighbors
         df_nodes['pi'] = df_nodes.apply(lambda x: x['weight'] * sum(x['neighbor_weights']), axis=1)
+        
         # Normalization according to Equation 10
         df_nodes['pi'] = df_nodes['pi'] / (df_nodes['pi'].sum())
 
-        curv_sums = df_nodes.groupby('gene')['curvature'].apply(sum)
-        df_nodes['scalar_curvature'] = df_nodes.apply(lambda x: x['pi'] * curv_sums.loc[x['gene']], axis=1)
-        total_curvature = df_nodes['scalar_curvature'].sum()
-        return total_curvature
+        # Scale the scalar curvatures by pi
+        df_nodes['nodal_curvature'] = df_nodes.apply(lambda x: x['pi'] * x['curvature'], axis=1)
+        
+        # Compute total curvature: sum of all nodal curvatures for the network
+        total_curvature = df_nodes['nodal_curvature'].sum()
+        return total_curvature, df_nodes['nodal_curvature']
 
     def _check_edge_weights(self):
         """
@@ -190,3 +224,33 @@ class GraphCurvature:
         if self_loop_edges:
             self.G.remove_edges_from(self_loop_edges)
             print('Removing self-loops! Check your graph to see what went wrong: nx.selfloop_edges(G)')
+
+    def curvature_per_pat(self, omics_df, rec):
+        pat_curves = dict()
+        nodal_curvs_list = []
+        for pat in omics_df.columns[1:]:
+            node_weights = dict(zip(omics_df['gene'],omics_df[pat]))
+            pat_curves[pat], nodal_curvs = self.compute_total_curvature(node_weights)
+            nodal_curvs_list.append(nodal_curvs)
+        curv_df = pd.DataFrame(list(pat_curves.items()), columns=['subject', 'curvature']).sort_values(by='curvature', ascending=False)
+        # Discard mismatched ids
+        common_inds = list(set(omics_df.columns).intersection(curv_df['subject']))
+        omics_df = omics_df[['gene'] + common_inds]
+
+        curv_df = curv_df[curv_df['subject'].apply(lambda x: x[-1]!=str(2))]
+        curv_df['Subject'] = curv_df['subject'].apply(lambda x: x.replace('C-800-01-','').split('_T')[0])
+
+        curv_df = curv_df[curv_df['Subject'].apply(lambda x: x in list(rec.index))]
+        curv_df['recist'] = curv_df['Subject'].apply(lambda x: rec.loc[x])
+        curv_table = curv_df[['subject', 'curvature', 'recist']].dropna()
+        curv_table['response'] = curv_table['recist'].apply(lambda x: x in ['CR', 'PR'])
+
+        all_subs = list(omics_df.columns)
+        all_subs.remove('gene')
+
+        nodal_curvs = pd.concat(nodal_curvs_list, axis=1)
+        nodal_curvs.columns = omics_df.drop('gene',axis=1).columns
+        nodal_curvs.set_index(omics_df['gene'], inplace=True)
+        return curv_table, nodal_curvs
+    
+    
