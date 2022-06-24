@@ -173,6 +173,7 @@ class GraphCurvature(object):
 
             # Compute sum of weights from neighbors
             nbr_edge_weight_sum = sum([x[0] for x in weight_node_pair])
+            
         else:
             weight_node_pair = []
             for nbr in list(G_nk.iterNeighbors(node)):
@@ -267,6 +268,15 @@ class GraphCurvature(object):
             print('Removing self-loops! Check your graph to see what went wrong: nx.selfloop_edges(G)')
 
     def curvature_per_pat(self, omics_df: pd.DataFrame, rec: bool = False) -> tuple:
+        r"""This function needs to be rewritten. The goal is to compute curvature for a set of
+        node weights (e.g., patients) without recomputing the edge and scalar curvatures.
+
+        :param omics_df (pd.DataFrame): Dataframe containing omics data. First column = 'gene',
+                                        subsequent columns represent patients/samples
+        :param rec (optional, bool): This option is specific to one of my use cases. It needs
+                                        to be refactored out.
+        :return (tuple): pd.DataFrame, pd.DataFrame
+        """
 
         if not omics_df.columns[0] == 'gene':
             print('First column of omics_df must be "gene". Exiting.')
