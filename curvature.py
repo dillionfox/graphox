@@ -90,6 +90,9 @@ class GraphCurvature(object):
         """
         return cls(G, scalar_curvatures = scalar_curvatures, **kwargs)
 
+    def __str__(self) -> str:
+        return """Very basic class for computing graph curvature from a weighted NetworkX graph"""
+
     def compute(self) -> None:
         r"""Main function for computing graph curvature. First compute edge curvatures, then nodal curvatures.
 
