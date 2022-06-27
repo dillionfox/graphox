@@ -12,7 +12,6 @@ from "omics" data. Examples:
     - [https://www.nature.com/articles/s41525-021-00259-9][2]
     - [https://www.biorxiv.org/content/10.1101/2022.03.24.485712v2.full.pdf][3]
     - [https://arxiv.org/abs/1502.04512][4]
-
 [1]: https://www.nature.com/articles/srep12323
 [2]: https://www.nature.com/articles/s41525-021-00259-9
 [3]: https://www.biorxiv.org/content/10.1101/2022.03.24.485712v2.full.pdf
