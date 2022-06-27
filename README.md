@@ -13,9 +13,11 @@ from "omics" data. Examples:
     - <https://arxiv.org/abs/1502.04512>
 
 # Installation
+```bash
 git clone https://github.com/dillionfox/graph_curvature.git
 conda env create -f graph_curvature.yml
 pip install .
+```
 
 # Usage
 Please see notebooks/example.ipynb for example usage.
