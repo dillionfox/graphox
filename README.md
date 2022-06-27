@@ -16,3 +16,6 @@ from "omics" data. Examples:
 git clone https://github.com/dillionfox/graph_curvature.git
 conda env create -f graph_curvature.yml
 pip install .
+
+# Usage
+Please see notebooks/example.ipynb for example usage.
