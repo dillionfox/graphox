@@ -2,8 +2,8 @@
 
 Compute Ollivier Ricci curvature (e.g., Graph Curvature, Network Curvature)
 on a NetworkX graph object, described in
-`Ricci curvature of Markov chains on metric spaces, Yann Ollivier
-<https://www.sciencedirect.com/science/article/pii/S002212360800493X?via%3Dihub>`
+*Ricci curvature of Markov chains on metric spaces, Yann Ollivier*
+https://www.sciencedirect.com/science/article/pii/S002212360800493X?via%3Dihub
 
 This method has been used in numerous studies for estimating patient prognosis
 from "omics" data. Examples:
