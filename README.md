@@ -1,4 +1,6 @@
-# Graph Curvature / Network Curvature / Ollivier Ricci Curvature
+# Graphox: Graph curvature toolkit 
+## Graph Curvature / Network Curvature / Ollivier Ricci Curvature
+## Curvature Graph Convolutional Neural Networks (coming soon)
 
 Compute Ollivier Ricci curvature (e.g., Graph Curvature, Network Curvature)
 on a NetworkX graph object, described in
