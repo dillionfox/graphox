@@ -1,10 +1,10 @@
 from setuptools import setup
 
 setup(
-    name='graph_curvature',
+    name='graphox',
     version='0.0.1',
     description='A simple implementation of Ollivier-Ricci curvature for NetworkX',
-    url='https://github.com/dillionfox/graph_curvature',
+    url='https://github.com/dillionfox/graphox',
     author='Dillion Fox',
     author_email='11foxd1@gmail.com',
     license='GPLv2',
