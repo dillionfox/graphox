@@ -314,9 +314,9 @@ class GraphCurvature(object):
         r"""This function needs to be rewritten. The goal is to compute curvature for a set of
         node weights (e.g., patients) without recomputing the edge and scalar curvatures.
 
-        :param omics_df (pd.DataFrame): Dataframe containing omics data. First column = 'gene',
+        :param omics_df: Dataframe containing omics data. First column = 'gene',
                                         subsequent columns represent patients/samples
-        :param rec (optional, bool): This option is specific to one of my use cases. It needs
+        :param rec: This option is specific to one of my use cases. It needs
                                         to be refactored out.
         :return (tuple): pd.DataFrame, pd.DataFrame
         """
@@ -356,5 +356,7 @@ class GraphCurvature(object):
 
         nodal_curvatures = pd.concat(nodal_curvature_list, axis=1)
         nodal_curvatures.columns = omics_df.drop('gene', axis=1).columns
+        print(nodal_curvatures)
+        print(omics_df['gene'])
         nodal_curvatures.set_index(omics_df['gene'], inplace=True)
         return curvatures_df, nodal_curvatures
