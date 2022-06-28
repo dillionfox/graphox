@@ -16,10 +16,11 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 import functools
+import heapq
 import math
 import multiprocessing as mp
+from os.path import exists
 
-import heapq
 import networkit as nk
 import networkx as nx
 import numpy as np
@@ -79,19 +80,34 @@ class GraphCurvature(object):
 
     def __str__(self) -> str:
         return r"""Very basic class for computing graph curvature from a weighted NetworkX graph"""
-    
+
     @classmethod
     def from_save(cls, G: nx.Graph, scalar_curvatures: pd.DataFrame, **kwargs):
-        r"""Alternative entry point to instantiating the class.
+        r"""Alternative entry point to instantiating the class if previous savepoint was used.
 
         :param scalar_curvatures_df: pd.DataFrame
         :param kwargs:
         :return: Instantiated object
         """
-        return cls(G, scalar_curvatures = scalar_curvatures, **kwargs)
+        return cls(G, scalar_curvatures=scalar_curvatures, **kwargs)
 
-    def __str__(self) -> str:
-        return """Very basic class for computing graph curvature from a weighted NetworkX graph"""
+    def save_checkpoint(self, name: str = 'graph_curvature_savepoint') -> None:
+        r"""Save graph and scalar curvatures to file. This can be handy when exploring different ideas, or for
+        inspecting exactly what is happening at each stage of the calculation.
+
+        :param name: base name to use for naming files
+        :return: None
+        """
+        graph_name = '{}_G.pkl'.format(name)
+        if exists(graph_name):
+            raise NameError('{} exists. Refusing to overwrite. Choose another name and try again.'.format(graph_name))
+        nx.write_gpickle(self.G)
+
+        scalar_curvatures_name = '{}_scalar_curvatures.csv'.format(name)
+        if exists(scalar_curvatures_name):
+            raise NameError(
+                '{} exists. Refusing to overwrite. Choose another name and try again.'.format(scalar_curvatures_name))
+        self.scalar_curvatures.to_csv(scalar_curvatures_name)
 
     def compute(self) -> None:
         r"""Main function for computing graph curvature. First compute edge curvatures, then nodal curvatures.
@@ -188,7 +204,7 @@ class GraphCurvature(object):
 
             # Compute sum of weights from neighbors
             nbr_edge_weight_sum = sum([x[0] for x in weight_node_pair])
-            
+
         else:
             weight_node_pair = []
             for nbr in list(G_nk.iterNeighbors(node)):
@@ -203,7 +219,7 @@ class GraphCurvature(object):
         # Compute weighted distribution of pairs
         distributions = [(1.0 - self.alpha) * w / nbr_edge_weight_sum for w, _ in
                          weight_node_pair] if nbr_edge_weight_sum > 1e-6 else [(1.0 - self.alpha) / len(
-                         weight_node_pair)] * len(weight_node_pair)
+            weight_node_pair)] * len(weight_node_pair)
 
         # Return distribution and list of neighbors
         return distributions + [self.alpha], [x[1] for x in weight_node_pair] + [node]
