@@ -58,6 +58,12 @@ class GraphCurvature(object):
         max_nodes_in_heap (int, optional): Optional parameter designed to avoid OOM issues.
             Default: 3000. For powerful computing resources, this number can be drastically
             increased.
+
+    Note:
+        Using this in a GCN could be super cool.
+            Starting point: https://github.com/GeoX-Lab/CGNN
+            Graph classification: https://colab.research.google.com/drive/1I8a0DfQ3fI7Njc62__mVXUlcAleUclnb?usp=sharing
+
     """
 
     def __init__(
