@@ -85,7 +85,8 @@ class GraphCurvature(object):
     def from_save(cls, G: nx.Graph, scalar_curvatures: pd.DataFrame, **kwargs):
         r"""Alternative entry point to instantiating the class if previous savepoint was used.
 
-        :param scalar_curvatures_df: pd.DataFrame
+        :param G: nx.Graph
+        :param scalar_curvatures: pd.DataFrame
         :param kwargs:
         :return: Instantiated object
         """
