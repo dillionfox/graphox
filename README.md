@@ -17,7 +17,7 @@ from "omics" data. Examples:
 
 # Installation
 ```bash
-git clone https://github.com/dillionfox/graph_curvature.git
+git clone https://github.com/dillionfox/graphox.git
 conda env create -f environment.yml
 pip install .
 ```
