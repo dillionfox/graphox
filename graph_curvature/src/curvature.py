@@ -13,11 +13,16 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+
+Note - I borrowed some really cool features from:
+https://github.com/saibalmars/GraphRicciCurvature/blob/master/GraphRicciCurvature/OllivierRicci.py
+Using lru_cache & heapq was taken directly from this script, and both are super performant.
+
 """
 
 import functools
 import heapq
-import math
 import multiprocessing as mp
 from os.path import exists
 
@@ -186,7 +191,7 @@ class GraphCurvature(object):
         # Return curvature for given edge: k = 1 - m_{x,y} / d(x,y)
         return {(sc_tg_pair[0], sc_tg_pair[1]): 1 - (ot.emd2(x, y, d) / G_nk.weight(sc_tg_pair[0], sc_tg_pair[1]))}
 
-    @functools.lru_cache(1000000)
+    @functools.lru_cache
     def _get_single_node_neighbors_distributions(self, node: str) -> tuple:
         r"""Compute weighted distribution of nodes and lookup neighbors
 
@@ -200,7 +205,7 @@ class GraphCurvature(object):
 
         if not self.use_heap:
             # Get sum of distributions from x's all neighbors
-            weight_node_pair = [(math.e ** (-G_nk.weight(node, nbr) ** 2), nbr) for nbr in
+            weight_node_pair = [(np.e ** (-G_nk.weight(node, nbr) ** 2), nbr) for nbr in
                                 list(G_nk.iterNeighbors(node))]
 
             # Compute sum of weights from neighbors
@@ -209,7 +214,7 @@ class GraphCurvature(object):
         else:
             weight_node_pair = []
             for nbr in list(G_nk.iterNeighbors(node)):
-                weight = math.e ** (-G_nk.weight(node, nbr) ** 2)
+                weight = np.e ** (-G_nk.weight(node, nbr) ** 2)
                 if len(weight_node_pair) < self.max_nodes_in_heap:
                     heapq.heappush(weight_node_pair, (weight, nbr))
                 else:
