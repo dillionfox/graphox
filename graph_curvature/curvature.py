@@ -339,6 +339,8 @@ class GraphCurvature(object):
         # Discard mismatched ids
         common_indices = list(set(omics_df.columns).intersection(curvatures_df['subject']))
         omics_df = omics_df[['gene'] + common_indices]
+        print('>>>', omics_df.shape)
+        print('<<<', nodal_curvatures.shape)
 
         # Temporary text -- delete once better plan is established
         if rec:
@@ -356,7 +358,5 @@ class GraphCurvature(object):
 
         nodal_curvatures = pd.concat(nodal_curvature_list, axis=1)
         nodal_curvatures.columns = omics_df.drop('gene', axis=1).columns
-        print(nodal_curvatures)
-        print(omics_df['gene'])
         nodal_curvatures.set_index(omics_df['gene'], inplace=True)
         return curvatures_df, nodal_curvatures
