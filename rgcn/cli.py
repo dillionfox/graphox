@@ -25,14 +25,11 @@ def val(data, model):
     return accuracies
 
 
-def main(args, d_input, d_output):
+def main(num_trials, d_input):
     accuracy_list = []
-    for i in range(args.num_trials):
-        if args.dataset != 'STRING':
-            data = load_data('./data', args.dataset)
-        else:
-            data = torch.load('/Users/dfox/code/graphox/data/G_annotated_masked.pt')
-        curvature_graph_obj = CurvatureGraph(data, args.dataset, d_input, d_output)
+    for i in range(num_trials):
+        data = torch.load('/Users/dfox/code/graphox/data/G_annotated_masked.pt')
+        curvature_graph_obj = CurvatureGraph(data, 'STRING', d_input, 2)
         data, model = curvature_graph_obj.call()
         optimizer = torch.optim.Adam(model.parameters(), lr=0.005, weight_decay=0.0005)
         best_val_acc = test_acc = 0.0
@@ -47,36 +44,9 @@ def main(args, d_input, d_output):
                 best_val_loss = np.min((float(val_loss), best_val_loss))
         print('Experiment: {}, Test: {}'.format(i + 1, test_acc))
         accuracy_list.append(test_acc * 100)
-    print('Experiments: {}, Mean: {}, std: {}\n'.format(args.num_trials, np.mean(accuracy_list),
+    print('Experiments: {}, Mean: {}, std: {}\n'.format(num_trials, np.mean(accuracy_list),
                                                         np.std(accuracy_list)))
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='CGNN')
-    parser.add_argument('--dataset', type=str, help="Name of the datasets", required=True)
-    parser.add_argument('--num_trials', type=int, help="The number of the repeating experiments", default=50)
-    args = parser.parse_args()
-
-    datasets_config = {
-        'Cora': {'d_input': 1433,
-                 'd_output': 7},
-        'Citeseer': {'d_input': 3703,
-                     'd_output': 6},
-        'PubMed': {'d_input': 500,
-                   'd_output': 3},
-        'CS': {'d_input': 6805,
-               'd_output': 15},
-        'Physics': {'d_input': 8415,
-                    'd_output': 5},
-        'Computers': {'d_input': 767,
-                      'd_output': 10},
-        'Photo': {'d_input': 745,
-                  'd_output': 8},
-        'WikiCS': {'d_input': 300,
-                   'd_output': 10},
-        'STRING': {'d_input': 823,
-                   'd_output': 2
-        }
-    }
-
-    main(args, datasets_config[args.dataset]['d_input'], datasets_config[args.dataset]['d_output'])
+    main(2, 823)
