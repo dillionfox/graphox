@@ -3,10 +3,46 @@ from abc import ABC
 import numpy as np
 import pandas as pd
 import torch
-from torch.nn import Linear
 from torch_geometric.nn import MessagePassing
 from torch_geometric.utils import add_self_loops
+from torch_geometric.utils.convert import from_networkx
 from torch_scatter import scatter_add
+
+
+class CurvatureGraph(object):
+    def __init__(self, G, curvature_values, d_input, d_output):
+        self.G = G
+        self.curvature_values = curvature_values
+        self.d_input = d_input
+        self.d_output = d_output
+        self.filename = r'./data/Ricci/graph_' + self.curvature_values + '.edge_list'
+
+    @staticmethod
+    def compute_convolution_weights(edge_index, edge_weight=None):
+        if edge_weight is None:
+            edge_weight = torch.ones((edge_index.size(1),), device=edge_index.device)
+        deg_inv_sqrt = scatter_add(edge_weight, edge_index[0], dim=0).pow(-0.5)
+        deg_inv_sqrt[deg_inv_sqrt == float('inf')] = 0
+        w_mul = deg_inv_sqrt[edge_index[0]] * edge_weight * deg_inv_sqrt[edge_index[1]]
+        return torch.tensor(w_mul.clone().detach(), dtype=torch.float)
+
+    def fetch_curvature_results(self, num_nodes):
+        df1 = pd.read_csv(self.filename, sep=' ', header=None, names=[0, 1, 2])
+        df = pd.concat([df1, df1.rename(columns={0: 1, 1: 0})]).reset_index(drop=True).drop_duplicates()
+        w_mul = np.concatenate([df.sort_values(by=[0, 1])[2].tolist(), [1 for i in range(num_nodes)]]).astype(
+            np.float16)
+        w_mul += np.float(abs(min(w_mul)))
+        return torch.from_numpy(w_mul)
+
+    def call(self):
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        curvature_values = self.fetch_curvature_results(self.G.num_nodes)
+        self.G.edge_index = add_self_loops(self.G.edge_index, num_nodes=self.G.x.size(0))[0]
+        w_mul = self.compute_convolution_weights(self.G.edge_index, curvature_values).to(device)
+        model = CurvatureGraphNN(self.d_input, self.d_output, w_mul, d_hidden=64, p=0.5)
+        data = self.G.to(device)
+        model.to(device).reset_parameters()
+        return data, model
 
 
 class CurvatureGraphNN(torch.nn.Module):
@@ -35,7 +71,7 @@ class MessagePassingConvLayer(MessagePassing, ABC):
         self.dropout = p
         self.out_channels = out_channels
         self.weight_agg = weight_agg
-        self.lin = Linear(in_channels, out_channels)
+        self.lin = torch.nn.Linear(in_channels, out_channels)
 
     def reset_parameters(self):
         self.lin.reset_parameters()
@@ -52,30 +88,3 @@ class MessagePassingConvLayer(MessagePassing, ABC):
         return aggr_out
 
 
-def compute_convolution_weights(edge_index, edge_weight=None):
-    if edge_weight is None:
-        edge_weight = torch.ones((edge_index.size(1),), device=edge_index.device)
-    deg_inv_sqrt = scatter_add(edge_weight, edge_index[0], dim=0).pow(-0.5)
-    deg_inv_sqrt[deg_inv_sqrt == float('inf')] = 0
-    w_mul = deg_inv_sqrt[edge_index[0]] * edge_weight * deg_inv_sqrt[edge_index[1]]
-    return torch.tensor(w_mul.clone().detach(), dtype=torch.float)
-
-
-def fetch_curvature_results(filename, num_nodes):
-    df1 = pd.read_csv(filename, sep=' ', header=None, names=[0, 1, 2])
-    df = pd.concat([df1, df1.rename(columns={0: 1, 1: 0})]).reset_index(drop=True).drop_duplicates()
-    w_mul = np.concatenate([df.sort_values(by=[0, 1])[2].tolist(), [1 for i in range(num_nodes)]]).astype(np.float16)
-    w_mul += np.float(abs(min(w_mul)))
-    return torch.from_numpy(w_mul)
-
-
-def call(data, arg, d_input, d_output):
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    filename = r'./data/Ricci/graph_' + arg.dataset + '.edge_list'
-    curvature_values = fetch_curvature_results(filename, data.num_nodes)
-    data.edge_index = add_self_loops(data.edge_index, num_nodes=data.x.size(0))[0]
-    w_mul = compute_convolution_weights(data.edge_index, curvature_values).to(device)
-    model = CurvatureGraphNN(d_input, d_output, w_mul, d_hidden=64, p=0.5)
-    data = data.to(device)
-    model.to(device).reset_parameters()
-    return data, model

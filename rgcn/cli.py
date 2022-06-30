@@ -3,7 +3,7 @@ import argparse
 import numpy as np
 import torch
 
-from model import CurvatureGraphNN
+from rgcn import CurvatureGraph
 from utils import load_data
 
 
@@ -28,8 +28,12 @@ def val(data, model):
 def main(args, d_input, d_output):
     accuracy_list = []
     for i in range(args.num_trials):
-        data = load_data('./data', args.dataset)
-        data, model = CurvatureGraphNN.call(data, args, d_input, d_output)
+        if args.dataset != 'STRING':
+            data = load_data('./data', args.dataset)
+        else:
+            data = torch.load('/Users/dfox/code/graphox/rgcn/G_annotated.pt')
+        curvature_graph_obj = CurvatureGraph(data, args.dataset, d_input, d_output)
+        data, model = curvature_graph_obj.call()
         optimizer = torch.optim.Adam(model.parameters(), lr=0.005, weight_decay=0.0005)
         best_val_acc = test_acc = 0.0
         best_val_loss = np.inf
@@ -70,6 +74,9 @@ if __name__ == '__main__':
                   'd_output': 8},
         'WikiCS': {'d_input': 300,
                    'd_output': 10},
+        'STRING': {'d_input': 1,
+                   'd_output': 2
+        }
     }
 
     main(args, datasets_config[args.dataset]['d_input'], datasets_config[args.dataset]['d_output'])

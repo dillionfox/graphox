@@ -88,6 +88,8 @@ class GraphCurvature(object):
         self.use_heap = True
         self.max_nodes_in_heap = max_nodes_in_heap
         self.scalar_curvatures = scalar_curvatures
+        self.edge_curvatures: dict
+        self.edge_curvatures = dict()
 
     def __str__(self) -> str:
         return r"""Very basic class for computing graph curvature from a weighted NetworkX graph"""
@@ -128,10 +130,10 @@ class GraphCurvature(object):
         """
 
         # Compute curvature for all edges
-        edge_curvatures = self._compute_edge_curvatures()
+        self.compute_edge_curvatures()
 
         # Assign edge curvatures to graph, G
-        nx.set_edge_attributes(self.G, edge_curvatures, 'edge_curvature')
+        nx.set_edge_attributes(self.G, self.edge_curvatures, 'edge_curvature')
 
         # Compute scalar curvatures
         for node in self.G.nodes():
@@ -144,7 +146,7 @@ class GraphCurvature(object):
         self.scalar_curvatures.index = list(self.G.nodes)
         self.scalar_curvatures.index.name = 'gene'
 
-    def _compute_edge_curvatures(self) -> dict:
+    def compute_edge_curvatures(self) -> dict:
         r"""Convert graph to "NetworKit" object so that all shortest paths between nodes can be computed.
         Then, for each pair of nodes, compute Ricci curvature for given edge.
 
@@ -174,7 +176,7 @@ class GraphCurvature(object):
             pool.join()
 
         # Return curvature for all edges
-        return {(nk2nx_ndict[k[0]], nk2nx_ndict[k[1]]): rc[k] for rc in result for k in list(rc.keys())}
+        self.edge_curvatures = {(nk2nx_ndict[k[0]], nk2nx_ndict[k[1]]): rc[k] for rc in result for k in list(rc.keys())}
 
     def _compute_single_edge(self, sc_tg_pair: tuple) -> dict:
         r"""Compute Ricci curvature for a single edge/single pair of nodes
