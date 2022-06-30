@@ -31,7 +31,7 @@ def main(args, d_input, d_output):
         if args.dataset != 'STRING':
             data = load_data('./data', args.dataset)
         else:
-            data = torch.load('/Users/dfox/code/graphox/rgcn/G_annotated.pt')
+            data = torch.load('/Users/dfox/code/graphox/data/G_annotated_masked.pt')
         curvature_graph_obj = CurvatureGraph(data, args.dataset, d_input, d_output)
         data, model = curvature_graph_obj.call()
         optimizer = torch.optim.Adam(model.parameters(), lr=0.005, weight_decay=0.0005)
@@ -74,7 +74,7 @@ if __name__ == '__main__':
                   'd_output': 8},
         'WikiCS': {'d_input': 300,
                    'd_output': 10},
-        'STRING': {'d_input': 1,
+        'STRING': {'d_input': 823,
                    'd_output': 2
         }
     }

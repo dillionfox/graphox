@@ -5,7 +5,6 @@ import pandas as pd
 import torch
 from torch_geometric.nn import MessagePassing
 from torch_geometric.utils import add_self_loops
-from torch_geometric.utils.convert import from_networkx
 from torch_scatter import scatter_add
 
 
@@ -15,20 +14,17 @@ class CurvatureGraph(object):
         self.curvature_values = curvature_values
         self.d_input = d_input
         self.d_output = d_output
-        self.filename = r'./data/Ricci/graph_' + self.curvature_values + '.edge_list'
+        self.ricci_filename = '/Users/dfox/code/graphox/data/immotion_edge_curvatures_formatted.csv'
 
     @staticmethod
-    def compute_convolution_weights(edge_index, edge_weight=None):
-        if edge_weight is None:
-            edge_weight = torch.ones((edge_index.size(1),), device=edge_index.device)
+    def compute_convolution_weights(edge_index, edge_weight):
         deg_inv_sqrt = scatter_add(edge_weight, edge_index[0], dim=0).pow(-0.5)
         deg_inv_sqrt[deg_inv_sqrt == float('inf')] = 0
         w_mul = deg_inv_sqrt[edge_index[0]] * edge_weight * deg_inv_sqrt[edge_index[1]]
         return torch.tensor(w_mul.clone().detach(), dtype=torch.float)
 
     def fetch_curvature_results(self, num_nodes):
-        df1 = pd.read_csv(self.filename, sep=' ', header=None, names=[0, 1, 2])
-        df = pd.concat([df1, df1.rename(columns={0: 1, 1: 0})]).reset_index(drop=True).drop_duplicates()
+        df = pd.read_csv(self.ricci_filename, sep=' ', header=None, names=[0, 1, 2])
         w_mul = np.concatenate([df.sort_values(by=[0, 1])[2].tolist(), [1 for i in range(num_nodes)]]).astype(
             np.float16)
         w_mul += np.float(abs(min(w_mul)))

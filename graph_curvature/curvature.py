@@ -157,18 +157,19 @@ class GraphCurvature(object):
 
         # Convert Networkx object to Networkit graph
         G_nk = nk.nxadapter.nx2nk(self.G, weightAttr='weight')
-
         # Construct dictionaries to make it easy to translate between nx and nk
         nx2nk_ndict = {n: idx for idx, n in enumerate(self.G.nodes())}
         nk2nx_ndict = {idx: n for idx, n in enumerate(self.G.nodes())}
 
         # Compute "All Pairs Shortest Path" using NetworKit library
+        print('nk algo')
         self.all_pairs_shortest_path = np.array(nk.distance.APSP(G_nk).run().getDistances())
 
         # Prepare source/target tuples for Multiprocessing
         sc_tg_pairs = [(nx2nk_ndict[source], nx2nk_ndict[target]) for source, target in self.G.edges()]
 
         # Compute edge curvature with Multiprocessing
+        print('multiproc')
         with mp.get_context('fork').Pool(processes=self.proc) as pool:
             result = pool.imap_unordered(self._compute_single_edge, sc_tg_pairs,
                                          chunksize=int(np.ceil(len(sc_tg_pairs) / (self.proc * 4))))
