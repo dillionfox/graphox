@@ -9,11 +9,9 @@ from torch_scatter import scatter_add
 
 
 class CurvatureGraph(object):
-    def __init__(self, G, curvature_values, d_input, d_output):
+    def __init__(self, G, curvature_values):
         self.G = G
         self.curvature_values = curvature_values
-        self.d_input = d_input
-        self.d_output = d_output
         self.ricci_filename = '/Users/dfox/code/graphox/data/immotion_edge_curvatures_formatted.csv'
 
     @staticmethod
@@ -35,17 +33,17 @@ class CurvatureGraph(object):
         curvature_values = self.fetch_curvature_results(self.G.num_nodes)
         self.G.edge_index = add_self_loops(self.G.edge_index, num_nodes=self.G.x.size(0))[0]
         w_mul = self.compute_convolution_weights(self.G.edge_index, curvature_values).to(device)
-        model = CurvatureGraphNN(self.d_input, self.d_output, w_mul, d_hidden=64, p=0.5)
+        model = CurvatureGraphNN(self.G.num_features, self.G.num_classes, w_mul, d_hidden=64, p=0.5)
         data = self.G.to(device)
         model.to(device).reset_parameters()
         return data, model
 
 
 class CurvatureGraphNN(torch.nn.Module):
-    def __init__(self, d_input, d_output, w_mul, d_hidden=64, p=0.0):
+    def __init__(self, num_features, num_classes, w_mul, d_hidden=64, p=0.0):
         super(CurvatureGraphNN, self).__init__()
-        self.conv1 = MessagePassingConvLayer(d_input, d_hidden, w_mul, p=p)
-        self.conv2 = MessagePassingConvLayer(d_hidden, d_output, w_mul, p=p)
+        self.conv1 = MessagePassingConvLayer(num_features, d_hidden, w_mul, p=p)
+        self.conv2 = MessagePassingConvLayer(d_hidden, num_classes, w_mul, p=p)
 
     def reset_parameters(self):
         self.conv1.reset_parameters()

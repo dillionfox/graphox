@@ -1,9 +1,8 @@
-import argparse
-
 import numpy as np
 import torch
 
-from rgcn import CurvatureGraph
+from graphox.rgcn.rgcn import CurvatureGraph
+from graphox.rgcn.data.immotion.immotion_dataset import ImMotionDataset
 
 
 def train(data, model, optimizer):
@@ -24,11 +23,11 @@ def val(data, model):
     return accuracies
 
 
-def main(num_trials, num_features):
+def main(num_trials):
     accuracy_list = []
     for i in range(num_trials):
-        data = torch.load('/Users/dfox/code/graphox/data/G_annotated_masked.pt')
-        curvature_graph_obj = CurvatureGraph(data, 'STRING', num_features, 2)
+        data = ImMotionDataset('/Users/dfox/code/graphox/notebooks/data')
+        curvature_graph_obj = CurvatureGraph(data, 'STRING')
         data, model = curvature_graph_obj.call()
         optimizer = torch.optim.Adam(model.parameters(), lr=0.005, weight_decay=0.0005)
         best_val_acc = test_acc = 0.0
@@ -49,5 +48,4 @@ def main(num_trials, num_features):
 
 if __name__ == '__main__':
     number_of_trials = 2
-    number_of_features = 823
-    main(number_of_trials, number_of_features)
+    main(number_of_trials)
