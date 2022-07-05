@@ -6,6 +6,7 @@ import torch
 from torch_geometric.nn import MessagePassing
 from torch_geometric.utils import add_self_loops
 from torch_scatter import scatter_add
+from torch_geometric.nn import global_mean_pool
 
 
 class CurvatureGraph(object):
@@ -49,13 +50,38 @@ class CurvatureGraphNN(torch.nn.Module):
         self.conv1.reset_parameters()
         self.conv2.reset_parameters()
 
-    def forward(self, data):
-        x, edge_index = data.x, data.edge_index,
+    def forward(self):
+        # 1. Obtain node embeddings
+        x = self.conv1(self.data.x, self.data.edge_index)
+        x = x.relu()
+        x = self.conv2(x, self.data.edge_index)
+        x = x.relu()
+        x = self.conv3(x, self.data.edge_index)
+
+        # 2. Readout layer
+        x = global_mean_pool(x)  # [batch_size, d_hidden]
+
+        # 3. Apply a final classifier
+        x = torch.nn.functional.dropout(x, p=0.5, training=self.training)
+        x = self.lin(x)
+
+        return x
+
+    def forward_bu(self, data):
+        # Dropout 1
         x = torch.nn.functional.dropout(data.x, p=0.6, training=self.training)
-        x = self.conv1(x, edge_index)
+
+        # Obtain node embeddings
+        x = self.conv1(x, data.edge_index)
         x = torch.nn.functional.relu(x)
+
+        # Dropout 2
         x = torch.nn.functional.dropout(x, p=0.6, training=self.training)
-        x = self.conv2(x, edge_index)
+
+        # Convolutional layer 2
+        x = self.conv2(x, data.edge_index)
+
+        # Return softmax
         return torch.nn.functional.log_softmax(x, dim=1)
 
 
