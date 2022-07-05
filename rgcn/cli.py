@@ -4,7 +4,6 @@ import numpy as np
 import torch
 
 from rgcn import CurvatureGraph
-from utils import load_data
 
 
 def train(data, model, optimizer):
@@ -25,11 +24,11 @@ def val(data, model):
     return accuracies
 
 
-def main(num_trials, d_input):
+def main(num_trials, num_features):
     accuracy_list = []
     for i in range(num_trials):
         data = torch.load('/Users/dfox/code/graphox/data/G_annotated_masked.pt')
-        curvature_graph_obj = CurvatureGraph(data, 'STRING', d_input, 2)
+        curvature_graph_obj = CurvatureGraph(data, 'STRING', num_features, 2)
         data, model = curvature_graph_obj.call()
         optimizer = torch.optim.Adam(model.parameters(), lr=0.005, weight_decay=0.0005)
         best_val_acc = test_acc = 0.0
@@ -49,4 +48,6 @@ def main(num_trials, d_input):
 
 
 if __name__ == '__main__':
-    main(2, 823)
+    number_of_trials = 2
+    number_of_features = 823
+    main(number_of_trials, number_of_features)

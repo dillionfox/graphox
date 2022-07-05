@@ -162,14 +162,12 @@ class GraphCurvature(object):
         nk2nx_ndict = {idx: n for idx, n in enumerate(self.G.nodes())}
 
         # Compute "All Pairs Shortest Path" using NetworKit library
-        print('nk algo')
         self.all_pairs_shortest_path = np.array(nk.distance.APSP(G_nk).run().getDistances())
 
         # Prepare source/target tuples for Multiprocessing
         sc_tg_pairs = [(nx2nk_ndict[source], nx2nk_ndict[target]) for source, target in self.G.edges()]
 
         # Compute edge curvature with Multiprocessing
-        print('multiproc')
         with mp.get_context('fork').Pool(processes=self.proc) as pool:
             result = pool.imap_unordered(self._compute_single_edge, sc_tg_pairs,
                                          chunksize=int(np.ceil(len(sc_tg_pairs) / (self.proc * 4))))
@@ -227,7 +225,6 @@ class GraphCurvature(object):
                 if len(weight_node_pair) < self.max_nodes_in_heap:
                     heapq.heappush(weight_node_pair, (weight, nbr))
                 else:
-                    # print('Heap push/pop')
                     heapq.heappushpop(weight_node_pair, (weight, nbr))
             nbr_edge_weight_sum = sum([x[0] for x in weight_node_pair])
 
@@ -343,23 +340,7 @@ class GraphCurvature(object):
         common_indices = list(set(omics_df.columns).intersection(curvatures_df['subject']))
         omics_df = omics_df[['gene'] + common_indices]
 
-        # Temporary text -- delete once better plan is established
-        if rec:
-            curvatures_df = curvatures_df[curvatures_df['subject'].apply(lambda x: x[-1] != str(2))]
-            curvatures_df['Subject'] = curvatures_df['subject'].apply(
-                lambda x: x.replace('C-800-01-', '').split('_T')[0])
-
-            curvatures_df = curvatures_df[curvatures_df['Subject'].apply(lambda x: x in list(rec.index))]
-            curvatures_df['recist'] = curvatures_df['Subject'].apply(lambda x: rec.loc[x])
-            curvatures_table = curvatures_df[['subject', 'curvature', 'recist']].dropna()
-            curvatures_table['response'] = curvatures_table['recist'].apply(lambda x: x in ['CR', 'PR'])
-
-            all_subs = list(omics_df.columns)
-            all_subs.remove('gene')
-
         nodal_curvatures = pd.concat(nodal_curvature_list, axis=1)
         nodal_curvatures.columns = omics_df.drop('gene', axis=1).columns
-        print(nodal_curvatures)
-        print(omics_df['gene'])
         nodal_curvatures.set_index(omics_df['gene'], inplace=True)
         return curvatures_df, nodal_curvatures
