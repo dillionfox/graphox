@@ -146,7 +146,7 @@ class GraphCurvature(object):
         self.scalar_curvatures.index = list(self.G.nodes)
         self.scalar_curvatures.index.name = 'gene'
 
-    def compute_edge_curvatures(self) -> dict:
+    def compute_edge_curvatures(self):
         r"""Convert graph to "NetworKit" object so that all shortest paths between nodes can be computed.
         Then, for each pair of nodes, compute Ricci curvature for given edge.
 
