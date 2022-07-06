@@ -27,16 +27,16 @@ def test(dataset, model):
 
 
 def main(num_trials):
-    data_raw = ImMotionDataset('/Users/dfox/code/graphox/notebooks/data/sample')
-    train_dataset = data_raw[:40]
-    test_dataset = data_raw[40:]
-    train_data = DataLoader(train_dataset, batch_size=1)
-    test_data = DataLoader(test_dataset, batch_size=1)
+    data_raw = ImMotionDataset('/Users/dfox/code/graphox/notebooks/data/full')
+    train_dataset = data_raw[:650]
+    test_dataset = data_raw[650:]
+    train_data = DataLoader(train_dataset, batch_size=1, shuffle=True)
+    test_data = DataLoader(test_dataset, batch_size=1, shuffle=False)
     curvature_values = CurvatureValues(data_raw[0].num_nodes).w_mul
     for i in range(num_trials):
         curvature_graph_obj = CurvatureGraph(data_raw[0], curvature_values)
         device, model = curvature_graph_obj.call()
-        optimizer = torch.optim.Adam(model.parameters(), lr=0.05, weight_decay=0.005)
+        optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
         for epoch in range(20):
             model, optimizer = train(train_data, model, optimizer)
             train_acc = test(train_data, model)
