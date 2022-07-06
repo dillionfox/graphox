@@ -26,8 +26,8 @@ def test(dataset, model):
     return correct / len(dataset.dataset)  # Derive ratio of correct predictions.
 
 
-def main(num_trials):
-    data_raw = ImMotionDataset('/Users/dfox/code/graphox/notebooks/data/full')
+def main(data_path, num_trials):
+    data_raw = ImMotionDataset(data_path)
     train_dataset = data_raw[:650]
     test_dataset = data_raw[650:]
     train_data = DataLoader(train_dataset, batch_size=1, shuffle=True)
@@ -45,5 +45,13 @@ def main(num_trials):
 
 
 if __name__ == '__main__':
+    import sys
+    import os
+
     number_of_trials = 2
-    main(number_of_trials)
+    data = sys.argv[1]
+
+    if not os.path.exists(data):
+        print('invalid path')
+
+    main(data, number_of_trials)
