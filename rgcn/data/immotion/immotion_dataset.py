@@ -18,10 +18,6 @@ class ImMotionDataset(InMemoryDataset):
     def processed_file_names(self):
         return os.listdir(self.root)
 
-    @property
-    def num_nodes(self):
-        return self.data[0].num_nodes
-
     def download(self):
         pass
 

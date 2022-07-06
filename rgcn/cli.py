@@ -1,49 +1,47 @@
 import numpy as np
 import torch
+from torch_geometric.loader import DataLoader
 
-from graphox.rgcn.rgcn import CurvatureGraph
+from graphox.rgcn.rgcn import CurvatureGraph, CurvatureValues
 from graphox.rgcn.data.immotion.immotion_dataset import ImMotionDataset
 
 
-def train(data, model, optimizer):
+def train(dataset, model, optimizer):
     model.train()
-    optimizer.zero_grad()
-    pred = model(data)
-    loss = torch.nn.functional.nll_loss(pred[data.train_mask], data.y[data.train_mask])
-    loss.backward()
-    optimizer.step()
+    for data in dataset:
+        pred = model(data)
+        loss = torch.nn.functional.nll_loss(pred, data.y.type(torch.LongTensor))
+        loss.backward()
+        optimizer.step()
+        optimizer.zero_grad()
+    return model, optimizer
 
 
-def val(data, model):
-    model.eval()
-    logits = model(data)
-    accuracies = [logits[mask].max(1)[1].eq(data.y[mask]).sum().item() / mask.sum().item() for _, mask in
-                  data('train_mask', 'val_mask', 'test_mask')]
-    accuracies.append(torch.nn.functional.nll_loss(model(data)[data.val_mask], data.y[data.val_mask]))
-    return accuracies
+def test(dataset, model):
+    correct = 0
+    for data in dataset:  # Iterate in batches over the training/test dataset.
+        out = model(data)
+        pred = out.argmax(dim=1)  # Use the class with the highest probability.
+        correct += int((pred == data.y).sum())  # Check against ground-truth labels.
+    return correct / len(dataset.dataset)  # Derive ratio of correct predictions.
 
 
 def main(num_trials):
-    accuracy_list = []
+    data_raw = ImMotionDataset('/Users/dfox/code/graphox/notebooks/data/sample')
+    train_dataset = data_raw[:40]
+    test_dataset = data_raw[40:]
+    train_data = DataLoader(train_dataset, batch_size=1)
+    test_data = DataLoader(test_dataset, batch_size=1)
+    curvature_values = CurvatureValues(data_raw[0].num_nodes).w_mul
     for i in range(num_trials):
-        data = ImMotionDataset('/Users/dfox/code/graphox/notebooks/data')
-        curvature_graph_obj = CurvatureGraph(data, 'STRING')
-        data, model = curvature_graph_obj.call()
-        optimizer = torch.optim.Adam(model.parameters(), lr=0.005, weight_decay=0.0005)
-        best_val_acc = test_acc = 0.0
-        best_val_loss = np.inf
-        for epoch in range(200):
-            train(data, model, optimizer)
-            train_acc, val_acc, tmp_test_acc, val_loss = val(data, model)
-            if val_acc >= best_val_acc or val_loss <= best_val_loss:
-                if val_acc >= best_val_acc:
-                    test_acc = tmp_test_acc
-                best_val_acc = np.max((val_acc, best_val_acc))
-                best_val_loss = np.min((float(val_loss), best_val_loss))
-        print('Experiment: {}, Test: {}'.format(i + 1, test_acc))
-        accuracy_list.append(test_acc * 100)
-    print('Experiments: {}, Mean: {}, std: {}\n'.format(num_trials, np.mean(accuracy_list),
-                                                        np.std(accuracy_list)))
+        curvature_graph_obj = CurvatureGraph(data_raw[0], curvature_values)
+        device, model = curvature_graph_obj.call()
+        optimizer = torch.optim.Adam(model.parameters(), lr=0.05, weight_decay=0.005)
+        for epoch in range(20):
+            model, optimizer = train(train_data, model, optimizer)
+            train_acc = test(train_data, model)
+            test_acc = test(test_data, model)
+            print('Epoch: {}, Train acc: {}, Test acc: {}'.format(epoch, train_acc, test_acc))
 
 
 if __name__ == '__main__':
