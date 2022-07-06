@@ -26,13 +26,13 @@ def test(dataset, model):
     return correct / len(dataset.dataset)  # Derive ratio of correct predictions.
 
 
-def main(data_path, num_trials):
+def main(data_path, num_trials, ricci_filename='/Users/dfox/code/graphox/data/immotion_edge_curvatures_formatted.csv'):
     data_raw = ImMotionDataset(data_path)
     train_dataset = data_raw[:650]
     test_dataset = data_raw[650:]
     train_data = DataLoader(train_dataset, batch_size=1, shuffle=True)
     test_data = DataLoader(test_dataset, batch_size=1, shuffle=False)
-    curvature_values = CurvatureValues(data_raw[0].num_nodes).w_mul
+    curvature_values = CurvatureValues(data_raw[0].num_nodes, ricci_filename=ricci_filename).w_mul
     for i in range(num_trials):
         curvature_graph_obj = CurvatureGraph(data_raw[0], curvature_values)
         device, model = curvature_graph_obj.call()
@@ -49,9 +49,10 @@ if __name__ == '__main__':
     import os
 
     number_of_trials = 2
-    data = sys.argv[1]
+    graphs_path = sys.argv[1]
+    ricci_path = sys.argv[2]
 
-    if not os.path.exists(data):
+    if not os.path.exists(graphs_path):
         print('invalid path')
 
-    main(data, number_of_trials)
+    main(graphs_path, number_of_trials, ricci_path)

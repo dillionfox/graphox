@@ -10,7 +10,7 @@ from torch_geometric.nn import global_mean_pool
 
 
 class CurvatureValues(object):
-    def __init__(self, num_nodes, ricci_filename = '/Users/dfox/code/graphox/data/immotion_edge_curvatures_formatted.csv'):
+    def __init__(self, num_nodes, ricci_filename):
         self.num_nodes = num_nodes
         self.ricci_filename = ricci_filename
         self.w_mul = None
