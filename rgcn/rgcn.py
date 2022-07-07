@@ -57,10 +57,10 @@ class CurvatureGraphNN(torch.nn.Module):
         self.conv2.reset_parameters()
 
     def forward(self, data):
-        x = torch.nn.functional.dropout(data.x, p=0.6, training=self.training)
+        # x = torch.nn.functional.dropout(data.x, p=0.6, training=self.training)
 
         # 1. Obtain node embeddings
-        x = self.conv1(x, data.edge_index)
+        x = self.conv1(data.x, data.edge_index)
         x = x.relu()
         x = self.conv2(x, data.edge_index)
         x = x.relu()
@@ -71,6 +71,7 @@ class CurvatureGraphNN(torch.nn.Module):
         # 3. Apply a final classifier
         x = torch.nn.functional.dropout(x, p=0.6, training=self.training)
         x = self.lin(x)
+        x = torch.nn.functional.log_softmax(x, dim=1)
 
         return x
 
