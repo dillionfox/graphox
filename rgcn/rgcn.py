@@ -29,19 +29,20 @@ class CurvatureGraph(object):
         self.num_classes = num_classes
         self.curvature_values = curvature_values
 
-    @staticmethod
-    def compute_convolution_weights(edge_index, edge_weight):
-        deg_inv_sqrt = scatter_add(edge_weight, edge_index[0], dim=0).pow(-0.5)
-        deg_inv_sqrt[deg_inv_sqrt == float('inf')] = 0
-        w_mul = deg_inv_sqrt[edge_index[0]] * edge_weight * deg_inv_sqrt[edge_index[1]]
-        return torch.tensor(w_mul.clone().detach(), dtype=torch.float)
-
     def call(self):
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         w_mul = self.compute_convolution_weights(self.G.edge_index, self.curvature_values)
         model = CurvatureGraphNN(self.G.num_features, self.num_classes, w_mul, d_hidden=64, p=0.5)
         model.to(device).reset_parameters()
         return device, model
+
+    @staticmethod
+    def compute_convolution_weights(edge_index, edge_weight):
+        print('>>>>>:::::', edge_index.shape, edge_weight.shape)
+        deg_inv_sqrt = scatter_add(edge_weight, edge_index[0], dim=0).pow(-0.5)
+        deg_inv_sqrt[deg_inv_sqrt == float('inf')] = 0
+        w_mul = deg_inv_sqrt[edge_index[0]] * edge_weight * deg_inv_sqrt[edge_index[1]]
+        return torch.tensor(w_mul.clone().detach(), dtype=torch.float)
 
 
 class CurvatureGraphNN(torch.nn.Module):
