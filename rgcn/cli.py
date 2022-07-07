@@ -1,9 +1,9 @@
-import numpy as np
-import torch
-from torch_geometric.loader import DataLoader
+from datetime import datetime
 
-from graphox.rgcn.rgcn import CurvatureGraph, CurvatureValues
+import torch
 from graphox.rgcn.data.immotion.immotion_dataset import ImMotionDataset
+from graphox.rgcn.rgcn import CurvatureGraph, CurvatureValues
+from torch_geometric.loader import DataLoader
 
 
 def train(dataset, model, optimizer):
@@ -38,10 +38,13 @@ def main(data_path, num_trials, ricci_filename='/Users/dfox/code/graphox/data/im
         device, model = curvature_graph_obj.call()
         optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
         for epoch in range(20):
+            t_initial = datetime.now()
             model, optimizer = train(train_data, model, optimizer)
             train_acc = test(train_data, model)
             test_acc = test(test_data, model)
-            print('Epoch: {}, Train acc: {}, Test acc: {}'.format(epoch, train_acc, test_acc))
+            t_final = datetime.now()
+            print('Epoch: {}, Train acc: {}, Test acc: {}, Time: {}'.format(epoch, train_acc, test_acc,
+                                                                            t_final - t_initial))
 
 
 if __name__ == '__main__':
