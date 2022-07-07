@@ -63,7 +63,7 @@ class CurvatureGraphNN(torch.nn.Module):
         x = self.conv1(data.x, data.edge_index)
         x = x.relu()
         x = self.conv2(x, data.edge_index)
-        x = x.relu()
+        # x = x.relu()
 
         # 2. Readout layer
         x = global_mean_pool(x, data.batch)  # [batch_size, d_hidden]
