@@ -38,6 +38,7 @@ def main(data_path, num_trials, ricci_filename='/Users/dfox/code/graphox/data/im
         device, model = curvature_graph_obj.call()
         optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
         for epoch in range(20):
+            print('Starting epoch: {}'.format(epoch))
             model, optimizer = train(train_data, model, optimizer)
             train_acc = test(train_data, model)
             test_acc = test(test_data, model)
