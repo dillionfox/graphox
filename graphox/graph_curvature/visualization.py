@@ -2,7 +2,7 @@ import networkx as nx
 import seaborn as sns
 import pandas as pd
 import matplotlib.pyplot as plt
-from graph_curvature.curvature import GraphCurvature
+from graphox.graph_curvature.curvature import GraphCurvature
 
 
 def make_curv_table(G_initial, tcat, tcat_anno, curvatures_csv='scalar_curvatures_C800_med_conf.csv'):
