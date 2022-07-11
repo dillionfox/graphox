@@ -34,19 +34,36 @@ class GraphBuilder(object):
         self.edge_curvatures = None
 
     def execute(self):
+        print("Converting gene symbols...")
         self.convert_gene_symbols()
+        print("Constructing NetworkX graph...")
         self.construct_networkx_graph()
+        print("Computing edge curvatures")
         self.compute_edge_curvatures()
 
     def convert_gene_symbols(self):
-        self.omics_data = pd.read_csv(self.omics_data_file)
-        self.string_aliases = pd.read_csv(self.string_aliases_file)
-        omics_data_converted = pd.DataFrame(self.omics_data['gene'].drop_duplicates())
+        # Read in "omics" data and make sure it fits the expected format
+        omics_data = pd.read_csv(self.omics_data_file)
+        if 'gene' not in omics_data.columns:
+            print('Expected omics_data file format:')
+            print('gene\tsample1\tsample2\t...')
+            print('"gene" column not detected. Searching for "symbol" column to use instead.')
+            omics_data['gene'] = omics_data['symbol']
+
+        drop_columns = ['EntrezID', 'symbol', 'gene_name']
+        omics_data.drop(columns=drop_columns, errors='ignore', inplace=True)
+        omics_data_converted = pd.DataFrame(omics_data['gene'].drop_duplicates())
+
+        # Read in STRING database aliases
+        self.string_aliases = pd.read_csv(self.string_aliases_file, sep='\t')
+
+        # Convert IDs
         omics_data_converted['convs'] = omics_data_converted['gene'].apply(
             lambda x: self.string_aliases[
                 self.string_aliases['alias'] == x
                 ]['#string_protein_id'].tolist()[0] if x in self.string_aliases['alias'].tolist() else np.nan)
         omics_data_converted.dropna(inplace=True)
+
         self.omics_data = omics_data_converted
 
     def construct_networkx_graph(self):
@@ -93,7 +110,8 @@ class GraphBuilder(object):
             G_df = pd.DataFrame(self.G.nodes, columns=['gene']).reset_index()
             tpm_df = G_df.merge(tpm_df0, left_on='gene', right_on='symbol').dropna().drop_duplicates(subset=['gene'])
 
-            ind_to_gene = pd.DataFrame(self.G.nodes, columns=['gene']).reset_index()[['gene', 'index']].to_dict()['gene']
+            ind_to_gene = pd.DataFrame(self.G.nodes, columns=['gene']).reset_index()[['gene', 'index']].to_dict()[
+                'gene']
             gene_to_ind = {v: k for k, v in ind_to_gene.items()}
 
             Gp = from_networkx(self.G)
@@ -125,7 +143,8 @@ class GraphBuilder(object):
             edge_curvs.sort_values(by=['ind1', 'ind2'])[['ind1', 'ind2', 'curvature']].to_csv(
                 'immotion_edge_curvatures_high.csv', index=False, header=False)
             edge_curvs[edge_curvs['curvature'].abs() > 0.2].sort_values(by=['ind1', 'ind2'])[
-                ['ind1', 'ind2', 'curvature']].to_csv('immotion_edge_curvatures_high_strong.csv', index=False, header=False)
+                ['ind1', 'ind2', 'curvature']].to_csv('immotion_edge_curvatures_high_strong.csv', index=False,
+                                                      header=False)
             edge_curvs[edge_curvs['curvature'].abs() > 0.3].sort_values(by=['ind1', 'ind2'])[
                 ['ind1', 'ind2', 'curvature']].to_csv('immotion_edge_curvatures_high_stronger.csv', index=False,
                                                       header=False)
@@ -136,7 +155,9 @@ class GraphBuilder(object):
 
 if __name__ == "__main__":
     omics_data_ = '/Users/dfox/code/graphox/data/raw/full_data_expr_G.csv'
+    omics_anno_ = '/Users/dfox/code/graphox/data/raw/full_data_anno.csv'
     string_aliases_file_ = '/Users/dfox/code/graphox/data/raw/9606.protein.aliases.v11.5.txt'
     string_edges_file_ = '/Users/dfox/code/graphox/data/raw/sample_links.txt'
 
-    builder = GraphBuilder(omics_data_, string_aliases_file_, string_edges_file_)
+    builder = GraphBuilder(omics_data_, omics_anno_, string_aliases_file_, string_edges_file_)
+    builder.execute()
