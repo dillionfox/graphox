@@ -5,7 +5,7 @@ import click
 import networkx as nx
 import pandas as pd
 
-from curvature import GraphCurvature
+from graphox.graph_curvature.curvature import GraphCurvature
 
 
 def make_example_graph(n: int = 4) -> nx.Graph:
