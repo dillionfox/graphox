@@ -104,7 +104,10 @@ class GraphBuilder(object):
         orc = GraphCurvature(self.G, n_procs=self.n_procs)
         orc.compute_edge_curvatures()
         self.edge_curvatures = orc.edge_curvatures
-        self.edge_curvatures.to_csv(self.curvature_file_name)
+        edge_curvatures_df = pd.DataFrame(list(self.edge_curvatures.keys()))
+        edge_curvatures_df['curvature'] = self.edge_curvatures.values()
+        edge_curvatures_df.rename(columns={0: 'gene_1', 1: 'gene_2'})
+        edge_curvatures_df.to_csv(self.curvature_file_name)
 
     def convert_to_pytorch(self):
         try_pytorch = False
