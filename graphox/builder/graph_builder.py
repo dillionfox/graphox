@@ -34,6 +34,7 @@ class GraphBuilder(object):
         self.string_edges: pd.DataFrame = pd.DataFrame([])
         self.confidence_level = confidence_level
         self.output_dir = Path(output_dir)
+        self.output_dir.mkdir(parents=True, exist_ok=True)
         self.graph_file_name = self.output_dir.joinpath(graph_file_name)
         self.curvature_file_name = self.output_dir.joinpath(curvature_file_name)
         self.n_procs = n_procs
