@@ -47,8 +47,9 @@ class GraphBuilder(object):
         self.convert_gene_symbols()
         print("Constructing NetworkX graph...")
         self.construct_networkx_graph()
-        print("Computing edge curvatures")
+        print("Computing edge curvatures...")
         self.compute_edge_curvatures()
+        print("Converting to PyTorch Geometric and writing individual graphs...")
 
     def convert_gene_symbols(self):
         # Read in "omics" data and make sure it fits the expected format
@@ -79,6 +80,8 @@ class GraphBuilder(object):
         )
         edges_df = merges.compute()[['gene_x', 'gene_y', 'combined_score']].rename(
             columns={'gene_x': 'gene_1', 'gene_y': 'gene_2'})
+
+        self.omics_data = omics_data
         self.edges_df = edges_df
 
     def construct_networkx_graph(self):
@@ -109,66 +112,59 @@ class GraphBuilder(object):
     def compute_edge_curvatures(self):
         orc = GraphCurvature(self.G, n_procs=self.n_procs)
         orc.compute_edge_curvatures()
-        self.edge_curvatures = orc.edge_curvatures
-        edge_curvatures_df = pd.DataFrame(list(self.edge_curvatures.keys()))
-        edge_curvatures_df['curvature'] = self.edge_curvatures.values()
+        edge_curvatures = orc.edge_curvatures
+        edge_curvatures_df = pd.DataFrame(list(edge_curvatures.keys()))
+        edge_curvatures_df['curvature'] = edge_curvatures.values()
         edge_curvatures_df.rename(columns={0: 'gene_1', 1: 'gene_2'})
         edge_curvatures_df.to_csv(self.curvature_file_name)
+        self.edge_curvatures = edge_curvatures_df
 
     def convert_to_pytorch(self):
-        try_pytorch = False
-        if try_pytorch:
-            tpm_df0 = pd.read_csv('/Users/dfox/data/immotion/data/full_data_expr_G.csv', index_col=0).drop_duplicates(
-                subset=['symbol'])
+        extra_nodes = set(self.G.nodes) - set(self.omics_data['gene'].tolist())
+        self.G.remove_nodes_from(extra_nodes)
+        if n_extra_nodes := len(extra_nodes) > 0:
+            print('Removing {} nodes from graph'.format(n_extra_nodes))
 
-            self.G = nx.read_gpickle('/Users/dfox/code/graphox/notebooks/high_conf_G.pkl')
-            extra_nodes = set(self.G.nodes) - set(tpm_df0['symbol'].tolist())
-            self.G.remove_nodes_from(extra_nodes)
+        G_df = pd.DataFrame(self.G.nodes, columns=['gene']).reset_index()
+        tpm_df = G_df.merge(self.omics_data, left_on='gene', right_on='symbol').dropna().drop_duplicates(
+            subset=['gene'])
 
-            G_df = pd.DataFrame(self.G.nodes, columns=['gene']).reset_index()
-            tpm_df = G_df.merge(tpm_df0, left_on='gene', right_on='symbol').dropna().drop_duplicates(subset=['gene'])
+        ind_to_gene = pd.DataFrame(self.G.nodes, columns=['gene']).reset_index()[['gene', 'index']].to_dict()[
+            'gene']
+        gene_to_ind = {v: k for k, v in ind_to_gene.items()}
 
-            ind_to_gene = pd.DataFrame(self.G.nodes, columns=['gene']).reset_index()[['gene', 'index']].to_dict()[
-                'gene']
-            gene_to_ind = {v: k for k, v in ind_to_gene.items()}
+        Gp = from_networkx(self.G)
+        Gp_df = pd.DataFrame(Gp.to_dict()['edge_index'].T, columns=['gene_1', 'gene_2'])
+        Gp_df['gene_1'] = Gp_df['gene_1'].apply(lambda x: ind_to_gene[x])
+        Gp_df['gene_2'] = Gp_df['gene_2'].apply(lambda x: ind_to_gene[x])
+        Gp_df.sort_values(by=['gene_1', 'gene_2'])
+        df_anno = pd.read_csv(self.omics_annotation_file, index_col=0)
 
-            Gp = from_networkx(self.G)
-            Gp_df = pd.DataFrame(Gp.to_dict()['edge_index'].T, columns=['gene1', 'gene2'])
-            Gp_df['gene1'] = Gp_df['gene1'].apply(lambda x: ind_to_gene[x])
-            Gp_df['gene2'] = Gp_df['gene2'].apply(lambda x: ind_to_gene[x])
-            Gp_df.sort_values(by=['gene1', 'gene2'])
-            df_anno = pd.read_csv('/Users/dfox/data/immotion/data/full_data_anno.csv', index_col=0)
+        df_anno['response'] = df_anno['OBJECTIVE_RESPONSE'].apply(lambda x: 1.0 if x in ['CR', 'PR'] else 0.0)
 
-            df_anno['response'] = df_anno['OBJECTIVE_RESPONSE'].apply(lambda x: 1.0 if x in ['CR', 'PR'] else 0.0)
+        self.output_dir.joinpath('graphs').mkdir(parents=True, exist_ok=True)
+        for col in tpm_df.columns[4:]:
+            G_i = None
+            Gt = None
+            G_i = Gp
+            x = torch.tensor(np.array([tpm_df[col].tolist()]).T, dtype=torch.float)
+            G_i['x'] = x
+            y = torch.tensor(df_anno[df_anno['RNASEQ_SAMPLE_ID'] == col]['response'].to_numpy(), dtype=torch.float)
+            G_i['y'] = y
+            Gt = G_i
+            torch.save(Gt, self.output_dir.joinpath('pt_graphs').joinpath('G_{}.pt'.format(col)))
 
-            for col in tpm_df.columns[4:]:
-                G_i = None
-                Gt = None
-                G_i = Gp
-                x = torch.tensor(np.array([tpm_df[col].tolist()]).T, dtype=torch.float)
-                G_i['x'] = x
-                y = torch.tensor(df_anno[df_anno['RNASEQ_SAMPLE_ID'] == col]['response'].to_numpy(), dtype=torch.float)
-                G_i['y'] = y
-                Gt = G_i
-                torch.save(Gt, 'data/G_{}.pt'.format(col))
+        edge_curvs_1 = self.edge_curvatures
+        edge_curvs = pd.concat([
+            edge_curvs_1,
+            edge_curvs_1.rename(columns={'gene_1': 'gene_2', 'gene_2': 'gene_1'})
+        ])
+        edge_curvs['ind1'] = edge_curvs['gene_1'].apply(lambda x: gene_to_ind[x] if x in gene_to_ind else np.nan)
+        edge_curvs['ind2'] = edge_curvs['gene_2'].apply(lambda x: gene_to_ind[x] if x in gene_to_ind else np.nan)
+        edge_curvs.dropna(inplace=True)
 
-            edge_curvs_1 = pd.read_csv('../data/high_conf_edge_curvatures.csv', index_col=0)
-            edge_curvs = pd.concat([edge_curvs_1, edge_curvs_1.rename(columns={'gene1': 'gene2', 'gene2': 'gene1'})])
-            edge_curvs['ind1'] = edge_curvs['gene1'].apply(lambda x: gene_to_ind[x] if x in gene_to_ind else np.nan)
-            edge_curvs['ind2'] = edge_curvs['gene2'].apply(lambda x: gene_to_ind[x] if x in gene_to_ind else np.nan)
-            edge_curvs.dropna(inplace=True)
-
-            edge_curvs.sort_values(by=['ind1', 'ind2'])[['ind1', 'ind2', 'curvature']].to_csv(
-                'immotion_edge_curvatures_high.csv', index=False, header=False)
-            edge_curvs[edge_curvs['curvature'].abs() > 0.2].sort_values(by=['ind1', 'ind2'])[
-                ['ind1', 'ind2', 'curvature']].to_csv('immotion_edge_curvatures_high_strong.csv', index=False,
-                                                      header=False)
-            edge_curvs[edge_curvs['curvature'].abs() > 0.3].sort_values(by=['ind1', 'ind2'])[
-                ['ind1', 'ind2', 'curvature']].to_csv('immotion_edge_curvatures_high_stronger.csv', index=False,
-                                                      header=False)
-
-        else:
-            raise NotImplementedError()
+        edge_curvs.sort_values(by=['ind1', 'ind2'])[['ind1', 'ind2', 'curvature']].to_csv(
+            self.output_dir.joinpath('pt_graphs').joinpath('pt_edge_curvatures.csv'), index=False, header=False)
 
 
 if __name__ == "__main__":
