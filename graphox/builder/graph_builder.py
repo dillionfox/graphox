@@ -5,6 +5,7 @@ import numpy as np
 import torch
 from torch_geometric.utils.convert import from_networkx
 import os
+import dask.dataframe as dd
 
 
 class GraphBuilder(object):
@@ -31,6 +32,7 @@ class GraphBuilder(object):
         self.graph_file_name = graph_file_name
         self.curvature_file_name = curvature_file_name
         self.n_procs = n_procs
+        self.edges_df: pd.DataFrame = pd.DataFrame([])
         self.G = None
         self.edge_curvatures = None
 
@@ -44,50 +46,56 @@ class GraphBuilder(object):
 
     def convert_gene_symbols(self):
         # Read in "omics" data and make sure it fits the expected format
-        omics_data = pd.read_csv(self.omics_data_file)
+        omics_data = dd.read_csv(self.omics_data_file)
         if 'gene' not in omics_data.columns:
             print('Expected omics_data file format:')
             print('gene\tsample1\tsample2\t...')
             print('"gene" column not detected. Searching for "symbol" column to use instead.')
             omics_data['gene'] = omics_data['symbol']
 
+        # Prepare omics data for computation
         drop_columns = ['EntrezID', 'symbol', 'gene_name']
-        omics_data.drop(columns=drop_columns, errors='ignore', inplace=True)
-        omics_data_converted = pd.DataFrame(omics_data['gene'].drop_duplicates())
+        omics_data = omics_data.drop(columns=drop_columns, errors='ignore')
 
-        # Read in STRING database aliases
-        self.string_aliases = pd.read_csv(self.string_aliases_file, sep='\t')
+        # Prepare STRING database file for computation
+        string_aliases = dd.read_csv(self.string_aliases_file, sep='\t')
+        string_aliases = string_aliases[['#string_protein_id', 'alias']]
+        aliases = string_aliases.drop_duplicates().compute()
+        aliases_trim = aliases.merge(omics_data[['gene']].compute(), left_on='alias', right_on='gene').drop_duplicates(
+            subset='#string_protein_id').drop(columns='alias')
 
-        # Convert IDs
-        omics_data_converted['convs'] = omics_data_converted['gene'].apply(
-            lambda x: self.string_aliases[
-                self.string_aliases['alias'] == x
-                ]['#string_protein_id'].tolist()[0] if x in self.string_aliases['alias'].tolist() else np.nan)
-        omics_data_converted.dropna(inplace=True)
-
-        self.omics_data = omics_data_converted
+        # Prepare nodes and edges for graph
+        links = dd.read_csv(self.string_edges_file, sep=' ')
+        merges = links.merge(aliases_trim, left_on='protein1', right_on='#string_protein_id').merge(
+            aliases_trim,
+            left_on='protein2',
+            right_on='#string_protein_id'
+        )
+        edges_df = merges.compute()[['gene_x', 'gene_y', 'combined_score']].rename(
+            columns={'gene_x': 'gene_1', 'gene_y': 'gene_2'})
+        self.edges_df = edges_df
 
     def construct_networkx_graph(self):
-        links = pd.read_csv(self.string_edges_file, sep=' ')
-        links = links[links['combined_score'] > self.confidence_level]
-        string_to_gene = self.omics_data.set_index('convs').to_dict()['gene']
-        links['gene1'] = links['protein1'].apply(lambda x: string_to_gene[x] if x in string_to_gene.keys() else np.nan)
-        links['gene2'] = links['protein2'].apply(lambda x: string_to_gene[x] if x in string_to_gene.keys() else np.nan)
-        links.dropna(inplace=True)
-        links = links[['gene1', 'gene2', 'combined_score']].sort_values(by='combined_score').drop_duplicates(
-            subset=['gene1', 'gene2'], keep='last')
-        # Construct list of tuples to define edges
-        edges = [(_[0], _[1], {'weight': _[2]}) for _ in
-                 list(zip(links['gene1'].tolist(), links['gene2'].tolist(), links['combined_score']))]
-        # Construct NetworkX graph
+        # Prepare edges for NetworkX graph
+        edges_df = self.edges_df
+        edges_df = edges_df[edges_df['combined_score'] > self.confidence_level]
+        edges_array = edges_df.to_numpy()
+        edges_array[:, 2] = np.array([{'weight': w} for w in edges_array[:, 2]])
+        edges = [tuple(_) for _ in edges_array]
+
+        # Prepare nodes for NetworkX graph
+        nodes = list(set(edges_df['gene_1'].unique().tolist() + edges_df['gene_2'].unique().tolist()))
+
+        # Instantiate empty graph
         G = nx.Graph()
-        # Set nodes
-        G.add_nodes_from(self.omics_data['gene'].tolist())
-        # Define edges
+
+        # Populate graph with edges and nodes
+        G.add_nodes_from(nodes)
         G.add_edges_from(edges)
-        # Pull out largest connected component
-        G_cc = [G.subgraph(c).copy() for c in nx.connected_components(G) if c == max(nx.connected_components(G),
-                                                                                     key=len)][0]
+        G_cc = [
+            G.subgraph(c).copy() for c in nx.connected_components(G) if c == max(nx.connected_components(G), key=len)
+        ][0]
+
         # Save graph as pickle
         nx.write_gpickle(G_cc, self.graph_file_name)
         self.G = G_cc
