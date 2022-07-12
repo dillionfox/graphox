@@ -176,7 +176,7 @@ if __name__ == "__main__":
     omics_data_ = os.path.join(root_dir, 'full_data_expr_G.csv')
     omics_anno_ = os.path.join(root_dir, 'full_data_anno.csv')
     string_aliases_file_ = os.path.join(root_dir, '9606.protein.aliases.v11.5.txt')
-    string_edges_file_ = os.path.join(root_dir, 'sample_links.txt')
+    string_edges_file_ = os.path.join(root_dir, '9606.protein.links.v11.5.txt')
 
     builder = GraphBuilder(omics_data_, omics_anno_, string_aliases_file_, string_edges_file_)
     builder.execute()
