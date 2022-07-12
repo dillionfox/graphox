@@ -126,14 +126,14 @@ class GraphBuilder(object):
         self.edge_curvatures = edge_curvatures_df
 
     def convert_to_pytorch(self):
-        omics_data = pd.Dataframe(self.omics_data)
+        omics_data = pd.DataFrame(self.omics_data, columns=self.omics_data.columns)
         extra_nodes = set(self.G.nodes) - set(omics_data['gene'].tolist())
         self.G.remove_nodes_from(extra_nodes)
         if n_extra_nodes := len(extra_nodes) > 0:
             print('Removing {} nodes from graph'.format(n_extra_nodes))
 
         G_df = pd.DataFrame(self.G.nodes, columns=['gene']).reset_index()
-        tpm_df = G_df.merge(omics_data, left_on='gene', right_on='symbol').dropna().drop_duplicates(
+        tpm_df = G_df.merge(omics_data, left_on='gene', right_on='gene').dropna().drop_duplicates(
             subset=['gene'])
 
         ind_to_gene = pd.DataFrame(self.G.nodes, columns=['gene']).reset_index()[['gene', 'index']].to_dict()[
@@ -166,6 +166,7 @@ class GraphBuilder(object):
             edge_curvs_1,
             edge_curvs_1.rename(columns={'gene_1': 'gene_2', 'gene_2': 'gene_1'})
         ])
+        edge_curvs.columns = ['gene_1', 'gene_2', 'curvature']
         edge_curvs['ind1'] = edge_curvs['gene_1'].apply(lambda x: gene_to_ind[x] if x in gene_to_ind else np.nan)
         edge_curvs['ind2'] = edge_curvs['gene_2'].apply(lambda x: gene_to_ind[x] if x in gene_to_ind else np.nan)
         edge_curvs.dropna(inplace=True)
