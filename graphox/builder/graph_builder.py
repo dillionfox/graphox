@@ -1,11 +1,14 @@
-from graphox.graph_curvature.curvature import GraphCurvature
-import pandas as pd
+import os
+from pathlib import Path
+
+import dask.dataframe as dd
 import networkx as nx
 import numpy as np
+import pandas as pd
 import torch
 from torch_geometric.utils.convert import from_networkx
-import os
-import dask.dataframe as dd
+
+from graphox.graph_curvature.curvature import GraphCurvature
 
 
 class GraphBuilder(object):
@@ -16,6 +19,7 @@ class GraphBuilder(object):
                  string_aliases_file: str,
                  string_edges_file: str,
                  confidence_level: int = 900,
+                 output_dir: str = 'output',
                  graph_file_name: str = 'G.pkl',
                  curvature_file_name: str = 'curvatures.csv',
                  n_procs: int = 4
@@ -29,8 +33,9 @@ class GraphBuilder(object):
         self.string_edges_file = string_edges_file
         self.string_edges: pd.DataFrame = pd.DataFrame([])
         self.confidence_level = confidence_level
-        self.graph_file_name = graph_file_name
-        self.curvature_file_name = curvature_file_name
+        self.output_dir = Path(output_dir)
+        self.graph_file_name = self.output_dir.joinpath(graph_file_name)
+        self.curvature_file_name = self.output_dir.joinpath(curvature_file_name)
         self.n_procs = n_procs
         self.edges_df: pd.DataFrame = pd.DataFrame([])
         self.G = None
