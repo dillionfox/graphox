@@ -50,14 +50,15 @@ class GraphBuilder(object):
         print("Computing edge curvatures...")
         self.compute_edge_curvatures()
         print("Converting to PyTorch Geometric and writing individual graphs...")
+        self.convert_to_pytorch()
 
     def convert_gene_symbols(self):
         # Read in "omics" data and make sure it fits the expected format
         omics_data = dd.read_csv(self.omics_data_file)
         if 'gene' not in omics_data.columns:
-            print('Expected omics_data file format:')
-            print('gene\tsample1\tsample2\t...')
-            print('"gene" column not detected. Searching for "symbol" column to use instead.')
+            print('\tExpected omics_data file format:')
+            print('\tgene\tsample1\tsample2\t...')
+            print('\t"gene" column not detected. Searching for "symbol" column to use instead.')
             omics_data['gene'] = omics_data['symbol']
 
         # Prepare omics data for computation
@@ -101,6 +102,11 @@ class GraphBuilder(object):
         # Populate graph with edges and nodes
         G.add_nodes_from(nodes)
         G.add_edges_from(edges)
+
+        # Remove self-loops. STRING database shouldn't lead to them, but just to be safe
+        G.remove_edges_from(nx.selfloop_edges(G))
+
+        # Find the largest connected component and drop the rest
         G_cc = [
             G.subgraph(c).copy() for c in nx.connected_components(G) if c == max(nx.connected_components(G), key=len)
         ][0]
@@ -120,13 +126,14 @@ class GraphBuilder(object):
         self.edge_curvatures = edge_curvatures_df
 
     def convert_to_pytorch(self):
-        extra_nodes = set(self.G.nodes) - set(self.omics_data['gene'].tolist())
+        omics_data = pd.Dataframe(self.omics_data)
+        extra_nodes = set(self.G.nodes) - set(omics_data['gene'].tolist())
         self.G.remove_nodes_from(extra_nodes)
         if n_extra_nodes := len(extra_nodes) > 0:
             print('Removing {} nodes from graph'.format(n_extra_nodes))
 
         G_df = pd.DataFrame(self.G.nodes, columns=['gene']).reset_index()
-        tpm_df = G_df.merge(self.omics_data, left_on='gene', right_on='symbol').dropna().drop_duplicates(
+        tpm_df = G_df.merge(omics_data, left_on='gene', right_on='symbol').dropna().drop_duplicates(
             subset=['gene'])
 
         ind_to_gene = pd.DataFrame(self.G.nodes, columns=['gene']).reset_index()[['gene', 'index']].to_dict()[
@@ -142,7 +149,7 @@ class GraphBuilder(object):
 
         df_anno['response'] = df_anno['OBJECTIVE_RESPONSE'].apply(lambda x: 1.0 if x in ['CR', 'PR'] else 0.0)
 
-        self.output_dir.joinpath('graphs').mkdir(parents=True, exist_ok=True)
+        self.output_dir.joinpath('pt_graphs').mkdir(parents=True, exist_ok=True)
         for col in tpm_df.columns[4:]:
             G_i = None
             Gt = None
