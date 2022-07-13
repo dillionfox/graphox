@@ -16,11 +16,13 @@ class ImMotionGraphBuilder(BaseGraphBuilder):
             omics_annotation_file: str,
             string_aliases_file: str,
             string_edges_file: str,
-            make_pytorch_graphs: bool
+            make_pytorch_graphs: bool = False,
+            n_procs: int = 4,
     ):
         super().__init__(omics_data_file, omics_annotation_file,
                          string_aliases_file, string_edges_file,
-                         make_pytorch_graphs)
+                         make_pytorch_graphs=make_pytorch_graphs,
+                         n_procs=n_procs)
 
     def convert_to_pytorch(self):
         omics_data = pd.DataFrame(self.omics_data, columns=self.omics_data.columns)
@@ -79,11 +81,13 @@ class TCatGraphBuilder(BaseGraphBuilder):
             omics_annotation_file: str,
             string_aliases_file: str,
             string_edges_file: str,
-            make_pytorch_graphs: bool
+            make_pytorch_graphs: bool = False,
+            n_procs: int = 4,
     ):
         super().__init__(omics_data_file, omics_annotation_file,
                          string_aliases_file, string_edges_file,
-                         make_pytorch_graphs)
+                         make_pytorch_graphs=make_pytorch_graphs,
+                         n_procs=n_procs)
 
     def convert_to_pytorch(self):
         omics_data = pd.DataFrame(self.omics_data, columns=self.omics_data.columns)
@@ -133,7 +137,8 @@ class TCatGraphBuilder(BaseGraphBuilder):
 
 @click.command()
 @click.option('--dataset', default='immotion', help='Pre-defined test dataset')
-def main(dataset: str):
+@click.option('--n_procs', default=4, help='Pre-defined test dataset')
+def main(dataset: str, n_procs: int):
     root_dir = 'data/raw/'
 
     if dataset not in ['immotion', 'tcat']:
@@ -147,10 +152,10 @@ def main(dataset: str):
 
     if dataset == 'immotion':
         builder = ImMotionGraphBuilder(omics_data_, omics_anno_, string_aliases_file_, string_edges_file_,
-                                       make_pytorch_graphs=True)
+                                       make_pytorch_graphs=True, n_procs=n_procs)
     elif dataset == 'tcat':
         builder = TCatGraphBuilder(omics_data_, omics_anno_, string_aliases_file_, string_edges_file_,
-                                   make_pytorch_graphs=False)
+                                   make_pytorch_graphs=False, n_procs=n_procs)
     else:
         raise NotImplementedError()
 
