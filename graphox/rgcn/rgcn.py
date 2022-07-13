@@ -22,7 +22,6 @@ import torch
 from graphox.rgcn.data.immotion.immotion_dataset import ImMotionDataset
 from graphox.rgcn.src import CurvatureGraph, CurvatureValues, CurvatureGraphNN
 from torch_geometric.loader import DataLoader
-from ignite.metrics import ConfusionMatrix
 
 from typing import Any
 
@@ -47,7 +46,6 @@ def test(dataset: DataLoader,
 
     # Building out metrics with ignite. Work in progress.
     correct = 0
-    metric = ConfusionMatrix(num_classes=2)
     for data in dataset:  # Iterate in batches over the training/test dataset.
         out = model(data)
         pred = out.max(1)[1]
