@@ -1,4 +1,4 @@
-from graphox.builder.graph_builder import BaseGraphBuilder
+from graphox.builder.base import BaseGraphBuilder
 from graphox.graph_curvature.curvature import GraphCurvature
 from graphox.rgcn.rgcn import main
 import os
