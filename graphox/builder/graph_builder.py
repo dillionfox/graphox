@@ -10,9 +10,17 @@ from graphox.builder.base import BaseGraphBuilder
 
 
 class ImMotionGraphBuilder(BaseGraphBuilder):
-    def __init__(self, omics_data_file: str, omics_annotation_file: str, string_aliases_file: str,
-                 string_edges_file: str):
-        super().__init__(omics_data_file, omics_annotation_file, string_aliases_file, string_edges_file)
+    def __init__(
+            self,
+            omics_data_file: str,
+            omics_annotation_file: str,
+            string_aliases_file: str,
+            string_edges_file: str,
+            make_pytorch_graphs: bool
+    ):
+        super().__init__(omics_data_file, omics_annotation_file,
+                         string_aliases_file, string_edges_file,
+                         make_pytorch_graphs)
 
     def convert_to_pytorch(self):
         omics_data = pd.DataFrame(self.omics_data, columns=self.omics_data.columns)
@@ -65,9 +73,17 @@ class ImMotionGraphBuilder(BaseGraphBuilder):
 
 
 class TCatGraphBuilder(BaseGraphBuilder):
-    def __init__(self, omics_data_file: str, omics_annotation_file: str, string_aliases_file: str,
-                 string_edges_file: str):
-        super().__init__(omics_data_file, omics_annotation_file, string_aliases_file, string_edges_file)
+    def __init__(
+            self,
+            omics_data_file: str,
+            omics_annotation_file: str,
+            string_aliases_file: str,
+            string_edges_file: str,
+            make_pytorch_graphs: bool
+    ):
+        super().__init__(omics_data_file, omics_annotation_file,
+                         string_aliases_file, string_edges_file,
+                         make_pytorch_graphs)
 
     def convert_to_pytorch(self):
         omics_data = pd.DataFrame(self.omics_data, columns=self.omics_data.columns)
@@ -130,9 +146,11 @@ def main(dataset: str):
     string_edges_file_ = os.path.join(root_dir, 'string/9606.protein.links.v11.5.txt')
 
     if dataset == 'immotion':
-        builder = ImMotionGraphBuilder(omics_data_, omics_anno_, string_aliases_file_, string_edges_file_)
+        builder = ImMotionGraphBuilder(omics_data_, omics_anno_, string_aliases_file_, string_edges_file_,
+                                       make_pytorch_graphs=True)
     elif dataset == 'tcat':
-        builder = TCatGraphBuilder(omics_data_, omics_anno_, string_aliases_file_, string_edges_file_)
+        builder = TCatGraphBuilder(omics_data_, omics_anno_, string_aliases_file_, string_edges_file_,
+                                   make_pytorch_graphs=False)
     else:
         raise NotImplementedError()
 

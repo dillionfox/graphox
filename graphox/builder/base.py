@@ -22,7 +22,8 @@ class BaseGraphBuilder(object):
                  output_dir: str = 'output',
                  graph_file_name: str = 'G.pkl',
                  curvature_file_name: str = 'curvatures.csv',
-                 n_procs: int = 4
+                 n_procs: int = 4,
+                 make_pytorch_graphs: bool = True
                  ):
         self.omics_data_file = omics_data_file
         self.omics_data: pd.DataFrame = pd.DataFrame([])
@@ -38,6 +39,7 @@ class BaseGraphBuilder(object):
         self.graph_file_name = self.output_dir.joinpath(graph_file_name)
         self.curvature_file_name = self.output_dir.joinpath(curvature_file_name)
         self.n_procs = n_procs
+        self.make_pytorch_graphs = make_pytorch_graphs
         self.edges_df: pd.DataFrame = pd.DataFrame([])
         self.G = None
         self.edge_curvatures = None
@@ -53,8 +55,9 @@ class BaseGraphBuilder(object):
         print("Computing edge curvatures...")
         self.compute_edge_curvatures()
 
-        print("Converting to PyTorch Geometric and writing individual graphs...")
-        self.convert_to_pytorch()
+        if self.make_pytorch_graphs:
+            print("Converting to PyTorch Geometric and writing individual graphs...")
+            self.convert_to_pytorch()
 
     def convert_gene_symbols(self):
         # Read in "omics" data and make sure it fits the expected format
