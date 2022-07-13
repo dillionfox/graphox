@@ -60,6 +60,7 @@ class BaseGraphBuilder(ABC):
         self.edges_df: pd.DataFrame = pd.DataFrame([])
         self.G = None
         self.edge_curvatures = None
+        self.orc = None
         self.gene_to_pt_ind = dict()
         self.edge_curvatures_file_path = self.output_dir.joinpath('pt_graphs').joinpath('pt_edge_curvatures.csv')
         self.pt_graphs_path = self.output_dir.joinpath('pt_graphs')
@@ -197,6 +198,19 @@ class BaseGraphBuilder(ABC):
 
         # Set instance attribute to dataframe. It's more convenient than the dictionary.
         self.edge_curvatures = edge_curvatures_df
+        self.orc = orc
+
+    def compute_nodal_curvatures(self) -> None:
+        r"""Finish graph curvature calculation after edge curvatures are computed
+
+        :return:
+        """
+        # If edge_curvatures were not previously computed, compute them.
+        if not self.edge_curvatures:
+            self.compute_edge_curvatures()
+
+        # Compute nodal_curvatures
+        self.orc.compute()
 
     def _pytorch_preprocess(self) -> None:
         r"""Preprocessing step. Goal is to convert from a base NetworkX graph to a set of
