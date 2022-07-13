@@ -11,7 +11,7 @@ from torch_geometric.utils.convert import from_networkx
 from graphox.graph_curvature.curvature import GraphCurvature
 
 
-class GraphBuilder(object):
+class BaseGraphBuilder(object):
 
     def __init__(self,
                  omics_data_file: str,
@@ -43,12 +43,16 @@ class GraphBuilder(object):
         self.edge_curvatures = None
 
     def execute(self):
+
         print("Converting gene symbols...")
         self.convert_gene_symbols()
+
         print("Constructing NetworkX graph...")
         self.construct_networkx_graph()
+
         print("Computing edge curvatures...")
         self.compute_edge_curvatures()
+
         print("Converting to PyTorch Geometric and writing individual graphs...")
         self.convert_to_pytorch()
 
@@ -151,8 +155,6 @@ class GraphBuilder(object):
 
         self.output_dir.joinpath('pt_graphs').mkdir(parents=True, exist_ok=True)
         for col in tpm_df.columns[4:]:
-            G_i = None
-            Gt = None
             G_i = Gp
             x = torch.tensor(np.array([tpm_df[col].tolist()]).T, dtype=torch.float)
             G_i['x'] = x
@@ -161,26 +163,38 @@ class GraphBuilder(object):
             Gt = G_i
             torch.save(Gt, self.output_dir.joinpath('pt_graphs').joinpath('G_{}.pt'.format(col)))
 
-        edge_curvs_1 = self.edge_curvatures
-        edge_curvs = pd.concat([
-            edge_curvs_1,
-            edge_curvs_1.rename(columns={'gene_1': 'gene_2', 'gene_2': 'gene_1'})
+        edge_curvatures_1 = self.edge_curvatures
+        edge_curvatures = pd.concat([
+            edge_curvatures_1,
+            edge_curvatures_1.rename(columns={'gene_1': 'gene_2', 'gene_2': 'gene_1'})
         ])
-        edge_curvs.columns = ['gene_1', 'gene_2', 'curvature']
-        edge_curvs['ind1'] = edge_curvs['gene_1'].apply(lambda x: gene_to_ind[x] if x in gene_to_ind else np.nan)
-        edge_curvs['ind2'] = edge_curvs['gene_2'].apply(lambda x: gene_to_ind[x] if x in gene_to_ind else np.nan)
-        edge_curvs.dropna(inplace=True)
+        edge_curvatures.columns = ['gene_1', 'gene_2', 'curvature']
+        edge_curvatures['ind1'] = edge_curvatures['gene_1'].apply(lambda x: gene_to_ind[x] if x in gene_to_ind else np.nan)
+        edge_curvatures['ind2'] = edge_curvatures['gene_2'].apply(lambda x: gene_to_ind[x] if x in gene_to_ind else np.nan)
+        edge_curvatures.dropna(inplace=True)
 
-        edge_curvs.sort_values(by=['ind1', 'ind2'])[['ind1', 'ind2', 'curvature']].to_csv(
+        edge_curvatures.sort_values(by=['ind1', 'ind2'])[['ind1', 'ind2', 'curvature']].to_csv(
             self.output_dir.joinpath('pt_graphs').joinpath('pt_edge_curvatures.csv'), index=False, header=False)
+
+
+class ImMotionGraphBuilder(BaseGraphBuilder):
+    def __init__(self, omics_data_file: str, omics_annotation_file: str, string_aliases_file: str,
+                 string_edges_file: str):
+        super().__init__(omics_data_file, omics_annotation_file, string_aliases_file, string_edges_file)
+
+
+class TCatGraphBuilder(BaseGraphBuilder):
+    def __init__(self, omics_data_file: str, omics_annotation_file: str, string_aliases_file: str,
+                 string_edges_file: str):
+        super().__init__(omics_data_file, omics_annotation_file, string_aliases_file, string_edges_file)
 
 
 if __name__ == "__main__":
     root_dir = 'data/raw/'
-    omics_data_ = os.path.join(root_dir, 'full_data_expr_G.csv')
-    omics_anno_ = os.path.join(root_dir, 'full_data_anno.csv')
-    string_aliases_file_ = os.path.join(root_dir, '9606.protein.aliases.v11.5.txt')
-    string_edges_file_ = os.path.join(root_dir, '9606.protein.links.v11.5.txt')
+    omics_data_ = os.path.join(root_dir, 'immotion/full_data_expr_G.csv')
+    omics_anno_ = os.path.join(root_dir, 'immotion/full_data_anno.csv')
+    string_aliases_file_ = os.path.join(root_dir, 'string/9606.protein.aliases.v11.5.txt')
+    string_edges_file_ = os.path.join(root_dir, 'string/9606.protein.links.v11.5.txt')
 
-    builder = GraphBuilder(omics_data_, omics_anno_, string_aliases_file_, string_edges_file_)
+    builder = ImMotionGraphBuilder(omics_data_, omics_anno_, string_aliases_file_, string_edges_file_)
     builder.execute()
