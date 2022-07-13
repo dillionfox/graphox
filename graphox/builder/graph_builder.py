@@ -129,7 +129,13 @@ def main(dataset: str):
     string_aliases_file_ = os.path.join(root_dir, 'string/9606.protein.aliases.v11.5.txt')
     string_edges_file_ = os.path.join(root_dir, 'string/9606.protein.links.v11.5.txt')
 
-    builder = ImMotionGraphBuilder(omics_data_, omics_anno_, string_aliases_file_, string_edges_file_)
+    if dataset == 'immotion':
+        builder = ImMotionGraphBuilder(omics_data_, omics_anno_, string_aliases_file_, string_edges_file_)
+    elif dataset == 'tcat':
+        builder = TCatGraphBuilder(omics_data_, omics_anno_, string_aliases_file_, string_edges_file_)
+    else:
+        raise NotImplementedError()
+
     builder.execute()
 
 
