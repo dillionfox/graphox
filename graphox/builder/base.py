@@ -105,7 +105,7 @@ class BaseGraphBuilder(ABC):
             columns={'gene_x': 'gene_1', 'gene_y': 'gene_2'})
 
         # Make instance attribute pandas type. It's easier this way.
-        self.omics_data = pd.DataFrame(self.omics_data, columns=self.omics_data.columns)
+        self.omics_data = pd.DataFrame(omics_data, columns=omics_data.columns)
         self.edges_df = edges_df
 
     def _construct_networkx_graph(self) -> None:
