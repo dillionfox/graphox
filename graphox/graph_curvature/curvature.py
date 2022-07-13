@@ -348,3 +348,17 @@ class GraphCurvature(object):
         nodal_curvatures.columns = omics_df.drop('gene', axis=1).columns
         nodal_curvatures.set_index(omics_df['gene'], inplace=True)
         return curvatures_df, nodal_curvatures
+
+
+def compute_scalar_curvature(G: nx.Graph) -> GraphCurvature:
+    orc = GraphCurvature(G)
+    orc.compute()
+    return orc
+
+
+def compute_nodal_curvatures(orc: GraphCurvature, node_weight_sets: pd.DataFrame) -> tuple:
+    curvature_per_patient = dict()
+    nodal_curvature = pd.DataFrame([])
+    for n, column in enumerate(node_weight_sets.columns):
+        curvature_per_patient[n], nodal_curvature = orc.compute_total_curvature(node_weight_sets[column])
+    return curvature_per_patient, nodal_curvature
