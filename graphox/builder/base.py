@@ -1,17 +1,15 @@
-import os
+from abc import ABC, abstractmethod
 from pathlib import Path
 
 import dask.dataframe as dd
 import networkx as nx
 import numpy as np
 import pandas as pd
-import torch
-from torch_geometric.utils.convert import from_networkx
 
 from graphox.graph_curvature.curvature import GraphCurvature
 
 
-class BaseGraphBuilder(object):
+class BaseGraphBuilder(ABC):
 
     def __init__(self,
                  omics_data_file: str,
@@ -22,7 +20,8 @@ class BaseGraphBuilder(object):
                  output_dir: str = 'output',
                  graph_file_name: str = 'G.pkl',
                  curvature_file_name: str = 'curvatures.csv',
-                 n_procs: int = 4
+                 n_procs: int = 4,
+                 make_pytorch_graphs: bool = True
                  ):
         self.omics_data_file = omics_data_file
         self.omics_data: pd.DataFrame = pd.DataFrame([])
@@ -38,6 +37,7 @@ class BaseGraphBuilder(object):
         self.graph_file_name = self.output_dir.joinpath(graph_file_name)
         self.curvature_file_name = self.output_dir.joinpath(curvature_file_name)
         self.n_procs = n_procs
+        self.make_pytorch_graphs = make_pytorch_graphs
         self.edges_df: pd.DataFrame = pd.DataFrame([])
         self.G = None
         self.edge_curvatures = None
@@ -53,8 +53,9 @@ class BaseGraphBuilder(object):
         print("Computing edge curvatures...")
         self.compute_edge_curvatures()
 
-        print("Converting to PyTorch Geometric and writing individual graphs...")
-        self.convert_to_pytorch()
+        if self.make_pytorch_graphs:
+            print("Converting to PyTorch Geometric and writing individual graphs...")
+            self.convert_to_pytorch()
 
     def convert_gene_symbols(self):
         # Read in "omics" data and make sure it fits the expected format
@@ -129,51 +130,8 @@ class BaseGraphBuilder(object):
         edge_curvatures_df.to_csv(self.curvature_file_name)
         self.edge_curvatures = edge_curvatures_df
 
+    @abstractmethod
     def convert_to_pytorch(self):
-        omics_data = pd.DataFrame(self.omics_data, columns=self.omics_data.columns)
-        extra_nodes = set(self.G.nodes) - set(omics_data['gene'].tolist())
-        self.G.remove_nodes_from(extra_nodes)
-        if n_extra_nodes := len(extra_nodes) > 0:
-            print('Removing {} nodes from graph'.format(n_extra_nodes))
-
-        G_df = pd.DataFrame(self.G.nodes, columns=['gene']).reset_index()
-        tpm_df = G_df.merge(omics_data, left_on='gene', right_on='gene').dropna().drop_duplicates(
-            subset=['gene'])
-
-        ind_to_gene = pd.DataFrame(self.G.nodes, columns=['gene']).reset_index()[['gene', 'index']].to_dict()[
-            'gene']
-        gene_to_ind = {v: k for k, v in ind_to_gene.items()}
-
-        Gp = from_networkx(self.G)
-        Gp_df = pd.DataFrame(Gp.to_dict()['edge_index'].T, columns=['gene_1', 'gene_2'])
-        Gp_df['gene_1'] = Gp_df['gene_1'].apply(lambda x: ind_to_gene[x])
-        Gp_df['gene_2'] = Gp_df['gene_2'].apply(lambda x: ind_to_gene[x])
-        Gp_df.sort_values(by=['gene_1', 'gene_2'])
-        df_anno = pd.read_csv(self.omics_annotation_file, index_col=0)
-
-        df_anno['response'] = df_anno['OBJECTIVE_RESPONSE'].apply(lambda x: 1.0 if x in ['CR', 'PR'] else 0.0)
-
-        self.output_dir.joinpath('pt_graphs').mkdir(parents=True, exist_ok=True)
-        for col in tpm_df.columns[4:]:
-            G_i = Gp
-            x = torch.tensor(np.array([tpm_df[col].tolist()]).T, dtype=torch.float)
-            G_i['x'] = x
-            y = torch.tensor(df_anno[df_anno['RNASEQ_SAMPLE_ID'] == col]['response'].to_numpy(), dtype=torch.float)
-            G_i['y'] = y
-            Gt = G_i
-            torch.save(Gt, self.output_dir.joinpath('pt_graphs').joinpath('G_{}.pt'.format(col)))
-
-        edge_curvatures_1 = self.edge_curvatures
-        edge_curvatures = pd.concat([
-            edge_curvatures_1,
-            edge_curvatures_1.rename(columns={'gene_1': 'gene_2', 'gene_2': 'gene_1'})
-        ])
-        edge_curvatures.columns = ['gene_1', 'gene_2', 'curvature']
-        edge_curvatures['ind1'] = edge_curvatures['gene_1'].apply(lambda x: gene_to_ind[x] if x in gene_to_ind else np.nan)
-        edge_curvatures['ind2'] = edge_curvatures['gene_2'].apply(lambda x: gene_to_ind[x] if x in gene_to_ind else np.nan)
-        edge_curvatures.dropna(inplace=True)
-
-        edge_curvatures.sort_values(by=['ind1', 'ind2'])[['ind1', 'ind2', 'curvature']].to_csv(
-            self.output_dir.joinpath('pt_graphs').joinpath('pt_edge_curvatures.csv'), index=False, header=False)
-
-
+        """Each dataset is a little different. Use one of the boilerplate classes in
+        'graph_builder.py to see an example of what should happen in this class.
+        '"""
