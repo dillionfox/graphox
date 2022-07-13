@@ -206,7 +206,7 @@ class BaseGraphBuilder(ABC):
         :return:
         """
         # If edge_curvatures were not previously computed, compute them.
-        if not self.edge_curvatures:
+        if not self.edge_curvatures.empty:
             self.compute_edge_curvatures()
 
         # Compute nodal_curvatures
