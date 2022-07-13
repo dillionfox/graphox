@@ -4,7 +4,6 @@ import click
 import numpy as np
 import pandas as pd
 import torch
-from torch_geometric.utils.convert import from_networkx
 
 from graphox.builder.base import BaseGraphBuilder
 
@@ -24,54 +23,36 @@ class ImMotionGraphBuilder(BaseGraphBuilder):
                          make_pytorch_graphs=make_pytorch_graphs,
                          n_procs=n_procs)
 
-    def convert_to_pytorch(self):
-        omics_data = pd.DataFrame(self.omics_data, columns=self.omics_data.columns)
-        extra_nodes = set(self.G.nodes) - set(omics_data['gene'].tolist())
-        self.G.remove_nodes_from(extra_nodes)
-        if n_extra_nodes := len(extra_nodes) > 0:
-            print('Removing {} nodes from graph'.format(n_extra_nodes))
+    def __str__(self):
+        return r"""Class designed to build a graph for the 'ImMotion' dataset
+        """
 
-        G_df = pd.DataFrame(self.G.nodes, columns=['gene']).reset_index()
-        tpm_df = G_df.merge(omics_data, left_on='gene', right_on='gene').dropna().drop_duplicates(
-            subset=['gene'])
+    def _convert_to_pytorch(self) -> None:
+        r"""Final step of converting base NetworkX graph to a set of pyg graphs.
+        Store patient/sample omics data and response as graph attribute. Save
+        graph for each patient/sample.
 
-        ind_to_gene = pd.DataFrame(self.G.nodes, columns=['gene']).reset_index()[['gene', 'index']].to_dict()[
-            'gene']
-        gene_to_ind = {v: k for k, v in ind_to_gene.items()}
-
-        Gp = from_networkx(self.G)
-        Gp_df = pd.DataFrame(Gp.to_dict()['edge_index'].T, columns=['gene_1', 'gene_2'])
-        Gp_df['gene_1'] = Gp_df['gene_1'].apply(lambda x: ind_to_gene[x])
-        Gp_df['gene_2'] = Gp_df['gene_2'].apply(lambda x: ind_to_gene[x])
-        Gp_df.sort_values(by=['gene_1', 'gene_2'])
+        :return: None
+        """
+        # Read in omics annotation information, including responses
         df_anno = pd.read_csv(self.omics_annotation_file, index_col=0)
-
         df_anno['response'] = df_anno['OBJECTIVE_RESPONSE'].apply(lambda x: 1.0 if x in ['CR', 'PR'] else 0.0)
 
-        self.output_dir.joinpath('pt_graphs').mkdir(parents=True, exist_ok=True)
-        for col in tpm_df.columns[4:]:
-            G_i = Gp
-            x = torch.tensor(np.array([tpm_df[col].tolist()]).T, dtype=torch.float)
+        # Create a new pyg graph for each patient and store omics + response as attributes
+        self.pt_graphs_path.mkdir(parents=True, exist_ok=True)
+        for col in self.tpm_df.drop(columns=['gene']).columns:
+            # Make a copy
+            G_i = self.Gp
+            # Convert 1d omics counts to pytorch tensor
+            x = torch.tensor(np.array([self.tpm_df[col].tolist()]).T, dtype=torch.float)
+            # Assign omics values to graph attribute
             G_i['x'] = x
+            # Convert response to pytorch tensor
             y = torch.tensor(df_anno[df_anno['RNASEQ_SAMPLE_ID'] == col]['response'].to_numpy(), dtype=torch.float)
+            # Store patient/sample response/label as graph attribute
             G_i['y'] = y
-            Gt = G_i
-            torch.save(Gt, self.output_dir.joinpath('pt_graphs').joinpath('G_{}.pt'.format(col)))
-
-        edge_curvatures_1 = self.edge_curvatures
-        edge_curvatures = pd.concat([
-            edge_curvatures_1,
-            edge_curvatures_1.rename(columns={'gene_1': 'gene_2', 'gene_2': 'gene_1'})
-        ])
-        edge_curvatures.columns = ['gene_1', 'gene_2', 'curvature']
-        edge_curvatures['ind1'] = edge_curvatures['gene_1'].apply(
-            lambda x: gene_to_ind[x] if x in gene_to_ind else np.nan)
-        edge_curvatures['ind2'] = edge_curvatures['gene_2'].apply(
-            lambda x: gene_to_ind[x] if x in gene_to_ind else np.nan)
-        edge_curvatures.dropna(inplace=True)
-
-        edge_curvatures.sort_values(by=['ind1', 'ind2'])[['ind1', 'ind2', 'curvature']].to_csv(
-            self.output_dir.joinpath('pt_graphs').joinpath('pt_edge_curvatures.csv'), index=False, header=False)
+            # Save patient/sample graph
+            torch.save(G_i, self.pt_graphs_path.joinpath('G_{}.pt'.format(col)))
 
 
 class TCatGraphBuilder(BaseGraphBuilder):
@@ -89,67 +70,60 @@ class TCatGraphBuilder(BaseGraphBuilder):
                          make_pytorch_graphs=make_pytorch_graphs,
                          n_procs=n_procs)
 
-    def convert_to_pytorch(self):
-        omics_data = pd.DataFrame(self.omics_data, columns=self.omics_data.columns)
-        extra_nodes = set(self.G.nodes) - set(omics_data['gene'].tolist())
-        self.G.remove_nodes_from(extra_nodes)
-        if n_extra_nodes := len(extra_nodes) > 0:
-            print('Removing {} nodes from graph'.format(n_extra_nodes))
+    def __str__(self):
+        return r"""Class designed to build a graph for the 'tcat' dataset
+        """
 
-        G_df = pd.DataFrame(self.G.nodes, columns=['gene']).reset_index()
-        tpm_df = G_df.merge(omics_data, left_on='gene', right_on='gene').dropna().drop_duplicates(
-            subset=['gene'])
+    def _convert_to_pytorch(self):
+        r"""Final step of converting base NetworkX graph to a set of pyg graphs.
+        Store patient/sample omics data and response as graph attribute. Save
+        graph for each patient/sample. Tcat dataset doesn't really have response
+        data, so mock it by assigning '1' for all samples. This dataset shouldn't
+        be used for classification, anyway.
 
-        ind_to_gene = pd.DataFrame(self.G.nodes, columns=['gene']).reset_index()[['gene', 'index']].to_dict()[
-            'gene']
-        gene_to_ind = {v: k for k, v in ind_to_gene.items()}
-
-        Gp = from_networkx(self.G)
-        Gp_df = pd.DataFrame(Gp.to_dict()['edge_index'].T, columns=['gene_1', 'gene_2'])
-        Gp_df['gene_1'] = Gp_df['gene_1'].apply(lambda x: ind_to_gene[x])
-        Gp_df['gene_2'] = Gp_df['gene_2'].apply(lambda x: ind_to_gene[x])
-        Gp_df.sort_values(by=['gene_1', 'gene_2'])
-
-        self.output_dir.joinpath('pt_graphs').mkdir(parents=True, exist_ok=True)
-        for col in tpm_df.columns[4:]:
-            G_i = Gp
-            x = torch.tensor(np.array([tpm_df[col].tolist()]).T, dtype=torch.float)
+        :return: None
+        """
+        # Create a new pyg graph for each patient and store omics + response as attributes
+        self.pt_graphs_path.mkdir(parents=True, exist_ok=True)
+        for col in self.tpm_df.drop(columns=['gene']).columns:
+            # Make a copy
+            G_i = self.Gp
+            # Convert 1d omics counts to pytorch tensor
+            x = torch.tensor(np.array([self.tpm_df[col].tolist()]).T, dtype=torch.float)
+            # Assign omics values to graph attribute
             G_i['x'] = x
+            # Store patient/sample response/label as graph attribute
             G_i['y'] = torch.tensor(1.0, dtype=torch.float)
-            Gt = G_i
-            torch.save(Gt, self.output_dir.joinpath('pt_graphs').joinpath('G_{}.pt'.format(col)))
-
-        edge_curvatures_1 = self.edge_curvatures
-        edge_curvatures = pd.concat([
-            edge_curvatures_1,
-            edge_curvatures_1.rename(columns={'gene_1': 'gene_2', 'gene_2': 'gene_1'})
-        ])
-        edge_curvatures.columns = ['gene_1', 'gene_2', 'curvature']
-        edge_curvatures['ind1'] = edge_curvatures['gene_1'].apply(
-            lambda x: gene_to_ind[x] if x in gene_to_ind else np.nan)
-        edge_curvatures['ind2'] = edge_curvatures['gene_2'].apply(
-            lambda x: gene_to_ind[x] if x in gene_to_ind else np.nan)
-        edge_curvatures.dropna(inplace=True)
-
-        edge_curvatures.sort_values(by=['ind1', 'ind2'])[['ind1', 'ind2', 'curvature']].to_csv(
-            self.output_dir.joinpath('pt_graphs').joinpath('pt_edge_curvatures.csv'), index=False, header=False)
+            # Save patient/sample graph
+            torch.save(G_i, self.pt_graphs_path.joinpath('G_{}.pt'.format(col)))
 
 
 @click.command()
 @click.option('--dataset', default='immotion', help='Pre-defined test dataset')
 @click.option('--n_procs', default=4, help='Pre-defined test dataset')
-def main(dataset: str, n_procs: int):
+def main(dataset: str, n_procs: int) -> None:
+    r"""Basic command-line interface for building graphs.
+
+    :param dataset: str, special keyword to determine which dataset is used.
+    :param n_procs: int, number of processors to use in edge curvature calculation
+    :return: None
+    """
+
+    # Set root directory for finding files. This is specific to how I set up my directories.
     root_dir = 'data/raw/'
 
+    # Only the following datasets are supported by this function.
     if dataset not in ['immotion', 'tcat']:
         print('Dataset not recognized')
         exit()
 
+    # Read in omics data, response data, and STRING database.
     omics_data_ = os.path.join(root_dir, '{}/counts.csv'.format(dataset))
     omics_anno_ = os.path.join(root_dir, '{}/anno.csv'.format(dataset))
     string_aliases_file_ = os.path.join(root_dir, 'string/9606.protein.aliases.v11.5.txt')
     string_edges_file_ = os.path.join(root_dir, 'string/9606.protein.links.v11.5.txt')
 
+    # Instantiate builder class
     if dataset == 'immotion':
         builder = ImMotionGraphBuilder(omics_data_, omics_anno_, string_aliases_file_, string_edges_file_,
                                        make_pytorch_graphs=True, n_procs=n_procs)
@@ -159,6 +133,7 @@ def main(dataset: str, n_procs: int):
     else:
         raise NotImplementedError()
 
+    # Build the graphs
     builder.execute()
 
 
