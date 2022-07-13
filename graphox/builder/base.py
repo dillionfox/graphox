@@ -41,6 +41,8 @@ class BaseGraphBuilder(ABC):
         self.edges_df: pd.DataFrame = pd.DataFrame([])
         self.G = None
         self.edge_curvatures = None
+        self.edge_curvatures_file_path = self.output_dir.joinpath('pt_graphs').joinpath('pt_edge_curvatures.csv')
+        self.pt_graphs_path = self.output_dir.joinpath('pt_graphs')
 
     def execute(self):
 
@@ -133,5 +135,6 @@ class BaseGraphBuilder(ABC):
     @abstractmethod
     def convert_to_pytorch(self):
         """Each dataset is a little different. Use one of the boilerplate classes in
-        'graph_builder.py to see an example of what should happen in this class.
-        '"""
+        'graph_builder.py' to see an example of what should happen in this class.
+        """
+        return
