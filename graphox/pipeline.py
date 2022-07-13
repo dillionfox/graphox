@@ -1,13 +1,13 @@
-from graphox.builder.graph_builder import ImMotionGraphBuilder
-from graphox.graph_curvature.cli import compute_scalar_curvature, compute_nodal_curvatures
-from graphox.rgcn.rgcn import rgcn_trainer
 import os
+
 import click
 
+from graphox.builder.graph_builder import ImMotionGraphBuilder
+from graphox.graph_curvature.cli import compute_nodal_curvatures
+from graphox.rgcn.rgcn import rgcn_trainer
 
-@click.command()
-@click.option('--dataset', default='immotion', help='Pre-defined test dataset')
-def run_rgcn(dataset: str):
+
+def _run_rgcn(dataset: str):
     # Set paths, choose project
     root_dir = 'data/raw/'
 
@@ -32,9 +32,7 @@ def run_rgcn(dataset: str):
     rgcn_trainer(builder.pt_graphs_path, 2, builder.edge_curvatures_file_path)
 
 
-@click.command()
-@click.option('--dataset', default='immotion', help='Pre-defined test dataset')
-def compute_curvature(dataset: str):
+def _compute_curvature(dataset: str):
     # Set paths, choose project
     root_dir = 'data/raw/'
 
@@ -62,4 +60,24 @@ def compute_curvature(dataset: str):
     # Compute curvature per patient and total curvature
     curvature_per_patient, nodal_curvature = compute_nodal_curvatures(builder.orc, builder.omics_data)
     print(curvature_per_patient)
-    
+
+
+@click.command()
+@click.option('--dataset', default='immotion', help='Pre-defined test dataset')
+@click.option('--compute_curvature', is_flag=True)
+@click.option('--run_rgcn', is_flag=True)
+def main(dataset: str, compute_curvature, run_rgcn):
+    # Make sure predefined project is chosen
+    if dataset not in ['immotion', 'tcat']:
+        print('Dataset not recognized')
+        exit()
+
+    if compute_curvature:
+        _compute_curvature(dataset)
+
+    if run_rgcn:
+        _run_rgcn(dataset)
+
+
+if __name__ == "__main__":
+    main()
