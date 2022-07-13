@@ -23,9 +23,9 @@ def main(dataset: str):
     if dataset not in ['immotion', 'tcat']:
         print('Dataset not recognized')
         exit()
-    
-    omics_data_ = os.path.join(root_dir, '{}/full_data_expr_G.csv'.format(dataset))
-    omics_anno_ = os.path.join(root_dir, '{}/full_data_anno.csv'.format(dataset))
+
+    omics_data_ = os.path.join(root_dir, '{}/counts.csv'.format(dataset))
+    omics_anno_ = os.path.join(root_dir, '{}/anno.csv'.format(dataset))
     string_aliases_file_ = os.path.join(root_dir, 'string/9606.protein.aliases.v11.5.txt')
     string_edges_file_ = os.path.join(root_dir, 'string/9606.protein.links.v11.5.txt')
 
