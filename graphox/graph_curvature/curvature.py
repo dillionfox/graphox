@@ -129,8 +129,10 @@ class GraphCurvature(object):
         The compute_total_curvature function computes the sum of nodal curvatures, weighted by node weights.
         """
 
-        # Compute curvature for all edges
-        self.compute_edge_curvatures()
+        # If edge_curvatures were computed using compute_edge_curvatures, don't recompute them.
+        if not self.edge_curvatures:
+            # Compute curvature for all edges
+            self.compute_edge_curvatures()
 
         # Assign edge curvatures to graph, G
         nx.set_edge_attributes(self.G, self.edge_curvatures, 'edge_curvature')
