@@ -1,6 +1,6 @@
 from graphox.builder.graph_builder import ImMotionGraphBuilder
 from graphox.graph_curvature.curvature import GraphCurvature
-from graphox.rgcn.rgcn import main
+from graphox.rgcn.rgcn import rgcn_trainer
 import os
 
 # Set paths, choose project
@@ -25,4 +25,4 @@ builder = ImMotionGraphBuilder(omics_data_, omics_anno_, string_aliases_file_, s
 builder.execute()
 
 # Run RGCN model
-main(builder.pt_graphs_path, 2, builder.edge_curvatures_file_path)
+rgcn_trainer(builder.pt_graphs_path, 2, builder.edge_curvatures_file_path)
