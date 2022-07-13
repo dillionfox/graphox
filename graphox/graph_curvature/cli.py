@@ -5,7 +5,7 @@ import click
 import networkx as nx
 import pandas as pd
 
-from graphox.graph_curvature.curvature import GraphCurvature
+from graphox.graph_curvature.curvature import compute_nodal_curvatures, compute_scalar_curvature
 
 
 def make_example_graph(n: int = 4) -> nx.Graph:
@@ -25,20 +25,6 @@ def make_example(n: int = 4, n_patients: int = 3) -> tuple:
     G = make_example_graph(n)
     node_weight_sets = make_example_node_weights(G, n_patients)
     return G, node_weight_sets
-
-
-def compute_scalar_curvature(G: nx.Graph) -> GraphCurvature:
-    orc = GraphCurvature(G)
-    orc.compute()
-    return orc
-
-
-def compute_nodal_curvatures(orc: GraphCurvature, node_weight_sets: pd.DataFrame) -> tuple:
-    curvature_per_patient = dict()
-    nodal_curvature = pd.DataFrame([])
-    for n, column in enumerate(node_weight_sets.columns):
-        curvature_per_patient[n], nodal_curvature = orc.compute_total_curvature(node_weight_sets[column])
-    return curvature_per_patient, nodal_curvature
 
 
 @click.command()
