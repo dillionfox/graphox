@@ -127,10 +127,8 @@ class BaseGraphBuilder(ABC):
         edges_df = merges.compute()[['gene_x', 'gene_y', 'combined_score']].rename(
             columns={'gene_x': 'gene_1', 'gene_y': 'gene_2'})
         edges_df = edges_df[edges_df['combined_score'] > self.confidence_level]
-        nodes = pd.concat([edges_df, edges_df.rename({'gene_1': 'gene_2', 'gene_2': 'gene_1'})]
+        self.nodes = pd.concat([edges_df, edges_df.rename({'gene_1': 'gene_2', 'gene_2': 'gene_1'})]
                           ).drop_duplicates(subset=['gene_1']).drop(columns=['gene_2', 'combined_score'])
-
-        omics_data = omics_data.merge(nodes, left_on='gene', right_on='gene_1', how='inner').drop(columns=['gene_1'])
 
         # Make instance attribute pandas type. It's easier this way.
         self.omics_data = pd.DataFrame(omics_data, columns=omics_data.columns)
@@ -150,7 +148,7 @@ class BaseGraphBuilder(ABC):
         edges = [tuple(_) for _ in edges_array]
 
         # Prepare nodes for NetworkX graph
-        nodes = list(set(edges_df['gene_1'].unique().tolist() + edges_df['gene_2'].unique().tolist()))
+        nodes = self.nodes.tolist()
 
         # Remove any nodes that we don't have omics data for. This shouldn't happen, but just in case.
 
@@ -175,6 +173,10 @@ class BaseGraphBuilder(ABC):
         ][0]
 
         self.G = G_cc
+
+        self.omics_data = self.omics_data.merge(
+            pd.DataFrame(self.G.nodes, columns=['gene']), left_on='gene', right_on='gene_1', how='inner'
+        ).drop(columns=['gene_1'])
 
         # Save graph as pickle
         nx.write_gpickle(self.G, self.graph_file_name)
