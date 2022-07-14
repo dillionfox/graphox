@@ -127,7 +127,8 @@ class BaseGraphBuilder(ABC):
         edges_df = merges.compute()[['gene_x', 'gene_y', 'combined_score']].rename(
             columns={'gene_x': 'gene_1', 'gene_y': 'gene_2'})
         edges_df = edges_df[edges_df['combined_score'] > self.confidence_level]
-        nodes = pd.concat([edges_df, edges_df.rename({'gene_1': 'gene_2', 'gene_2': 'gene_1'})])[['gene_1']].unique()
+        nodes = pd.concat([edges_df, edges_df.rename({'gene_1': 'gene_2', 'gene_2': 'gene_1'})])[
+            ['gene_1']].drop_duplicates()
 
         omics_data = omics_data.merge(nodes, left_on='gene', right_on='gene_1', how='inner').drop('gene_1')
 
