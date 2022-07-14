@@ -2,9 +2,9 @@ import os
 
 import click
 
-from ..graphox.builder.graph_builder import ImMotionGraphBuilder
-from ..graphox.graph_curvature.curvature import compute_nodal_curvatures
-from ..graphox.rgcn.rgcn import rgcn_trainer
+from graphox.builder.graph_builder import ImMotionGraphBuilder
+from graphox.graph_curvature.curvature import compute_nodal_curvatures
+from graphox.rgcn.rgcn import rgcn_trainer
 
 
 def _run_rgcn(dataset: str, n_procs: int):
