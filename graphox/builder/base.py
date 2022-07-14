@@ -176,8 +176,7 @@ class BaseGraphBuilder(ABC):
         self.G = G_cc
 
         self.omics_data = self.omics_data.merge(
-            pd.DataFrame(self.G.nodes, columns=['gene']), left_on='gene', right_on='gene_1', how='inner'
-        ).drop(columns=['gene_1'])
+            pd.DataFrame(self.G.nodes, columns=['gene']), on='gene', how='inner')
 
         # Save graph as pickle
         nx.write_gpickle(self.G, self.graph_file_name)
