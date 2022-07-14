@@ -148,7 +148,7 @@ class BaseGraphBuilder(ABC):
         edges = [tuple(_) for _ in edges_array]
 
         # Prepare nodes for NetworkX graph
-        nodes = self.nodes.tolist()
+        nodes = self.nodes['gene'].tolist()
 
         # Remove any nodes that we don't have omics data for. This shouldn't happen, but just in case.
 
