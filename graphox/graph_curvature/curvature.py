@@ -268,7 +268,6 @@ class GraphCurvature(object):
 
     def compute_total_curvature(self, node_weights: dict) -> tuple:
         r"""Compute nodal curvatures and sum them to compute total curvature"""
-        print(len(node_weights), len(self.G.nodes))
         # Make sure the user passed in a dictionary with the correct number of keys (one per gene)
         self._check_node_weights(node_weights)
 
