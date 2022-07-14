@@ -130,7 +130,7 @@ class BaseGraphBuilder(ABC):
         nodes = pd.concat([edges_df, edges_df.rename({'gene_1': 'gene_2', 'gene_2': 'gene_1'})]
                           ).drop_duplicates(subset=['gene_1']).drop(columns=['gene_2', 'combined_score'])
 
-        omics_data = omics_data.merge(nodes, left_on='gene', right_on='gene_1', how='inner').drop('gene_1')
+        omics_data = omics_data.merge(nodes, left_on='gene', right_on='gene_1', how='inner').drop(columns=['gene_1'])
 
         # Make instance attribute pandas type. It's easier this way.
         self.omics_data = pd.DataFrame(omics_data, columns=omics_data.columns)
