@@ -129,7 +129,7 @@ class BaseGraphBuilder(ABC):
         edges_df = edges_df[edges_df['combined_score'] > self.confidence_level]
         self.nodes = pd.concat([edges_df, edges_df.rename({'gene_1': 'gene_2', 'gene_2': 'gene_1'})]
                                ).drop_duplicates(subset=['gene_1']).drop(columns=['gene_2', 'combined_score']).rename(
-            {'gene_1': 'gene'})
+            columns={'gene_1': 'gene'})
 
         # Make instance attribute pandas type. It's easier this way.
         self.omics_data = pd.DataFrame(omics_data, columns=omics_data.columns)
