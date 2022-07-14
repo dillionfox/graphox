@@ -116,6 +116,7 @@ class BaseGraphBuilder(ABC):
         aliases = string_aliases.drop_duplicates().compute()
         aliases_trim = aliases.merge(omics_data[['gene']].compute(), left_on='alias', right_on='gene').drop_duplicates(
             subset='#string_protein_id').drop(columns='alias')
+        omics_data = omics_data.merge(aliases_trim, on='gene', how='inner')
 
         # Prepare nodes and edges for graph
         links = dd.read_csv(self.string_edges_file, sep=' ')
