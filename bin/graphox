@@ -5,4 +5,4 @@ module load cuda11.3
 source activate
 conda activate graphox
 
-python graphox.py ${@}
+python bin/graphox.py ${@}
