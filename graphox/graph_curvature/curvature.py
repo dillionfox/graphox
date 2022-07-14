@@ -341,8 +341,6 @@ class GraphCurvature(object):
         # Discard mismatched ids
         common_indices = list(set(omics_df.columns).intersection(curvatures_df['subject']))
         omics_df = omics_df[['gene'] + common_indices]
-        print('>>>', omics_df.shape)
-        print('<<<', nodal_curvatures.shape)
 
         nodal_curvatures = pd.concat(nodal_curvature_list, axis=1)
         nodal_curvatures.columns = omics_df.drop('gene', axis=1).columns

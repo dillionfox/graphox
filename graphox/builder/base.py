@@ -116,7 +116,6 @@ class BaseGraphBuilder(ABC):
         aliases = string_aliases.drop_duplicates().compute()
         aliases_trim = aliases.merge(omics_data[['gene']].compute(), left_on='alias', right_on='gene').drop_duplicates(
             subset='#string_protein_id').drop(columns='alias')
-        omics_data = omics_data.merge(aliases_trim, on='gene', how='inner')
 
         # Prepare nodes and edges for graph
         links = dd.read_csv(self.string_edges_file, sep=' ')
@@ -127,6 +126,10 @@ class BaseGraphBuilder(ABC):
         )
         edges_df = merges.compute()[['gene_x', 'gene_y', 'combined_score']].rename(
             columns={'gene_x': 'gene_1', 'gene_y': 'gene_2'})
+        edges_df = edges_df[edges_df['combined_score'] > self.confidence_level]
+        nodes = pd.concat([edges_df, edges_df.rename({'gene_1': 'gene_2', 'gene_2': 'gene_1'})])[['gene_1']].unique()
+
+        omics_data = omics_data.merge(nodes, left_on='gene', right_on='gene_1', how='inner').drop('gene_1')
 
         # Make instance attribute pandas type. It's easier this way.
         self.omics_data = pd.DataFrame(omics_data, columns=omics_data.columns)
@@ -141,7 +144,6 @@ class BaseGraphBuilder(ABC):
         """
         # Prepare edges for NetworkX graph
         edges_df = self.edges_df
-        edges_df = edges_df[edges_df['combined_score'] > self.confidence_level]
         edges_array = edges_df.to_numpy()
         edges_array[:, 2] = np.array([{'weight': w} for w in edges_array[:, 2]])
         edges = [tuple(_) for _ in edges_array]
