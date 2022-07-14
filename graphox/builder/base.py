@@ -58,8 +58,12 @@ class BaseGraphBuilder(ABC):
         self.n_procs = n_procs
         self.make_pytorch_graphs = make_pytorch_graphs
         self.edges_df: pd.DataFrame = pd.DataFrame([])
-        self.G = None
-        self.edge_curvatures = None
+        self.G: nx.Graph
+        self.G = nx.Graph()
+        self.edge_curvatures: pd.DataFrame
+        self.edge_curvatures = pd.DataFrame([])
+        self.edge_curvatures_dict = dict()
+        self.orc: GraphCurvature
         self.orc = None
         self.gene_to_pt_ind = dict()
         self.edge_curvatures_file_path = self.output_dir.joinpath('pt_graphs').joinpath('pt_edge_curvatures.csv')
@@ -198,6 +202,7 @@ class BaseGraphBuilder(ABC):
 
         # Set instance attribute to dataframe. It's more convenient than the dictionary.
         self.edge_curvatures = edge_curvatures_df
+        self.edge_curvatures_dict = edge_curvatures
         self.orc = orc
 
     def compute_nodal_curvatures(self) -> None:
