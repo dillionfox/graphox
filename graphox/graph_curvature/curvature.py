@@ -360,5 +360,6 @@ def compute_nodal_curvatures(orc: GraphCurvature, node_weight_sets: pd.DataFrame
     curvature_per_patient = dict()
     nodal_curvature = pd.DataFrame([])
     for n, column in enumerate(node_weight_sets.drop(columns=['gene']).columns):
-        curvature_per_patient[n], nodal_curvature = orc.compute_total_curvature(node_weight_sets[column])
+        weights_dict = dict(zip(node_weight_sets['gene'].tolist(), node_weight_sets[column].tolist()))
+        curvature_per_patient[n], nodal_curvature = orc.compute_total_curvature(weights_dict)
     return curvature_per_patient, nodal_curvature
