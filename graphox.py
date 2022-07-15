@@ -5,6 +5,10 @@ import click
 from graphox.builder.graph_builder import ImMotionGraphBuilder
 from graphox.graph_curvature.curvature import compute_nodal_curvatures
 from graphox.rgcn.rgcn import rgcn_trainer
+from pathlib import Path
+
+
+output_dir: Path = Path('output')
 
 
 def _run_rgcn(dataset: str, n_procs: int):
@@ -35,6 +39,7 @@ def _run_rgcn(dataset: str, n_procs: int):
 def _compute_curvature(dataset: str, n_procs: int):
     # Set paths, choose project
     root_dir = 'data/raw/'
+    total_curvature_output = output_dir.joinpath('total_curvatures.csv')
 
     # Make sure predefined project is chosen
     if dataset not in ['immotion', 'tcat']:
@@ -60,6 +65,7 @@ def _compute_curvature(dataset: str, n_procs: int):
     # Compute curvature per patient and total curvature
     curvature_per_patient, nodal_curvature = compute_nodal_curvatures(builder.orc, builder.omics_data)
     print(curvature_per_patient)
+    curvature_per_patient.to_csv(total_curvature_output)
 
 
 @click.command()
