@@ -39,7 +39,8 @@ def _run_rgcn(dataset: str, n_procs: int):
 def _compute_curvature(dataset: str, n_procs: int):
     # Set paths, choose project
     root_dir = 'data/raw/'
-    total_curvature_output = output_dir.joinpath('total_curvatures.csv')
+    total_curvature_output = output_dir.joinpath('{}_total_curvatures.csv'.format(dataset))
+    nodal_curvatures_output = output_dir.joinpath('{}_nodal_curvatures.csv'.format(dataset))
 
     # Make sure predefined project is chosen
     if dataset not in ['immotion', 'tcat']:
@@ -63,9 +64,14 @@ def _compute_curvature(dataset: str, n_procs: int):
     builder.compute_nodal_curvatures()
 
     # Compute curvature per patient and total curvature
-    curvature_per_patient, nodal_curvature = compute_nodal_curvatures(builder.orc, builder.omics_data)
-    print(curvature_per_patient)
-    curvature_per_patient.to_csv(total_curvature_output)
+    # curvature_per_patient, nodal_curvature = compute_nodal_curvatures(builder.orc, builder.omics_data)
+    # print(curvature_per_patient)
+    # curvature_per_patient.to_csv(total_curvature_output)
+    builder.compute_curvature_per_sample()
+    print(builder.total_curvature_per_sample)
+    print(builder.nodal_curvatures_per_sample)
+    builder.total_curvature_per_sample.to_csv(total_curvature_output)
+    builder.nodal_curvatures_per_sample.to_csv(nodal_curvatures_output)
 
 
 @click.command()

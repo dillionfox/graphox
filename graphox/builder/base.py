@@ -63,6 +63,8 @@ class BaseGraphBuilder(ABC):
         self.edge_curvatures: pd.DataFrame
         self.edge_curvatures = pd.DataFrame([])
         self.edge_curvatures_dict = dict()
+        self.nodal_curvatures_per_sample: pd.DataFrame = pd.DataFrame([])
+        self.total_curvature_per_sample: pd.DataFrame = pd.DataFrame([])
         self.orc: GraphCurvature
         self.orc = None
         self.gene_to_pt_ind = dict()
@@ -222,6 +224,16 @@ class BaseGraphBuilder(ABC):
 
         # Compute nodal_curvatures
         self.orc.compute()
+
+    def compute_curvature_per_sample(self) -> None:
+        r"""Call the built-in function in GraphCurvature to compute
+        nodal curvatures and total curvature per patient.
+
+        :return: None
+        """
+        curvatures_df, nodal_curvatures = self.orc.curvature_per_pat(self.omics_data)
+        self.total_curvature_per_sample = curvatures_df
+        self.nodal_curvatures_per_sample = nodal_curvatures
 
     def _pytorch_preprocess(self) -> None:
         r"""Preprocessing step. Goal is to convert from a base NetworkX graph to a set of
