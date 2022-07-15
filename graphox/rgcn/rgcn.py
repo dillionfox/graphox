@@ -67,6 +67,10 @@ def rgcn_trainer(data_path: str,
     train_data = DataLoader(train_dataset, batch_size=1, shuffle=True)
     test_data = DataLoader(test_dataset, batch_size=1, shuffle=False)
 
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    train_data = train_data.to(device)
+    test_data = test_data.to(device)
+
     # Structure edge curvatures in CurvatureValues instance
     curvature_values = CurvatureValues(data_raw[0].num_nodes, ricci_filename=ricci_filename).w_mul
 
@@ -78,7 +82,8 @@ def rgcn_trainer(data_path: str,
         curvature_graph_obj = CurvatureGraph(data_raw[0], curvature_values)
 
         # Construct RGCN model
-        device, model = curvature_graph_obj.call()
+        model = curvature_graph_obj.call()
+        model.to(device)
 
         # Initialize optimizer and loss function
         optimizer = torch.optim.Adam(model.parameters(), lr=0.01)

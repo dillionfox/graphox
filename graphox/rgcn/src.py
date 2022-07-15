@@ -48,11 +48,9 @@ class CurvatureGraph(object):
         self.curvature_values = curvature_values
 
     def call(self):
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         w_mul = self.compute_convolution_weights(self.G.edge_index, self.curvature_values)
         model = CurvatureGraphNN(self.G.num_features, self.num_classes, w_mul, d_hidden=64, p=0.5)
-        model.to(device).reset_parameters()
-        return device, model
+        return model
 
     @staticmethod
     def compute_convolution_weights(edge_index, edge_weight):
