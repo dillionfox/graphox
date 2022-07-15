@@ -354,7 +354,7 @@ def compute_scalar_curvature(G: nx.Graph) -> GraphCurvature:
 
 
 def compute_nodal_curvatures(orc: GraphCurvature, node_weight_sets: pd.DataFrame) -> tuple:
-    curvature_per_patient = dict()
+    curvature_per_patient = pd.DataFrame(range(len(node_weight_sets)))
     nodal_curvature = pd.DataFrame([])
     for n, column in enumerate(node_weight_sets.drop(columns=['gene']).columns):
         weights_dict = dict(zip(node_weight_sets['gene'].tolist(), node_weight_sets[column].tolist()))
