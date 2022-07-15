@@ -84,6 +84,8 @@ class GraphCurvature(object):
         self.all_pairs_shortest_path = None
         self.scalar_curvatures: pd.DataFrame
         self.scalar_curvatures = None
+        self.total_curvature: float
+        self.total_curvature = 0.0
         self.use_heap: bool
         self.use_heap = True
         self.max_nodes_in_heap = max_nodes_in_heap
@@ -266,7 +268,7 @@ class GraphCurvature(object):
         df_nodes['weight'] = df_nodes['gene'].apply(lambda x: node_weights[x])
         return df_nodes
 
-    def compute_total_curvature(self, node_weights: dict) -> tuple:
+    def compute_total_curvature(self, node_weights: dict) -> pd.Series:
         r"""Compute nodal curvatures and sum them to compute total curvature"""
         # Make sure the user passed in a dictionary with the correct number of keys (one per gene)
         self._check_node_weights(node_weights)
@@ -284,9 +286,8 @@ class GraphCurvature(object):
         # Scale the scalar curvatures by pi
         df_nodes['nodal_curvature'] = df_nodes.apply(lambda x: 100 * x['pi'] * x['curvature'], axis=1)
 
-        # Compute total curvature: sum of all nodal curvatures for the network
-        total_curvature = df_nodes['nodal_curvature'].sum()
-        return total_curvature, df_nodes['nodal_curvature']
+        # Return nodal curvatures. Total curvature is sum.
+        return df_nodes['nodal_curvature']
 
     def _check_edge_weights(self) -> None:
         r"""If edge weights aren't defined, set them all to 1 """
@@ -311,7 +312,7 @@ class GraphCurvature(object):
             self.G.remove_edges_from(self_loop_edges)
             print('Removing self-loops! Check your graph to see what went wrong: nx.selfloop_edges(G)')
 
-    def curvature_per_pat(self, omics_df: pd.DataFrame, rec: bool = False) -> tuple:
+    def curvature_per_pat(self, omics_df: pd.DataFrame) -> tuple:
         r"""This function needs to be rewritten. The goal is to compute curvature for a set of
         node weights (e.g., patients) without recomputing the edge and scalar curvatures.
 
@@ -330,8 +331,9 @@ class GraphCurvature(object):
         nodal_curvature_list = []
         for pat in omics_df.columns[1:]:
             node_weights = dict(zip(omics_df['gene'], omics_df[pat]))
-            pat_curves[pat], nodal_curvatures = self.compute_total_curvature(node_weights)
+            nodal_curvatures = self.compute_total_curvature(node_weights)
             nodal_curvature_list.append(nodal_curvatures)
+            pat_curves[pat] = nodal_curvatures.sum()
 
         curvatures_df = pd.DataFrame(list(pat_curves.items()), columns=['subject', 'curvature']).sort_values(
             by='curvature',
