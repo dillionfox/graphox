@@ -60,8 +60,8 @@ def rgcn_trainer(data_path: str,
     data_raw = ImMotionDataset(data_path)
 
     # Split into test/train
-    train_dataset = data_raw[:20]
-    test_dataset = data_raw[20:30]
+    train_dataset = data_raw[:658]
+    test_dataset = data_raw[658:]
 
     # Convert test/train sets to Data Loaders
     train_data = DataLoader(train_dataset, batch_size=1, shuffle=True)
@@ -84,7 +84,7 @@ def rgcn_trainer(data_path: str,
         optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 
         # Train model and compute metrics
-        for epoch in range(20):
+        for epoch in range(1000):
             t_initial = datetime.now()
             model, optimizer = train(train_data, model, optimizer)
             train_acc = test(train_data, model)
