@@ -28,13 +28,12 @@ from typing import Any
 
 def train(dataset: DataLoader,
           model: CurvatureGraphNN,
-          optimizer: Any,
-          loss_function: Any) -> tuple:
+          optimizer: Any) -> tuple:
 
     model.train()
     for data in dataset:
         pred = model(data)
-        loss = loss_function(pred, data.y.type(torch.LongTensor))
+        loss = torch.nn.functional.nll_loss(pred, data.y.type(torch.LongTensor))
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
@@ -61,8 +60,8 @@ def rgcn_trainer(data_path: str,
     data_raw = ImMotionDataset(data_path)
 
     # Split into test/train
-    train_dataset = data_raw[:20]
-    test_dataset = data_raw[20:30]
+    train_dataset = data_raw[:658]
+    test_dataset = data_raw[658:]
 
     # Convert test/train sets to Data Loaders
     train_data = DataLoader(train_dataset, batch_size=1, shuffle=True)
@@ -83,12 +82,11 @@ def rgcn_trainer(data_path: str,
 
         # Initialize optimizer and loss function
         optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
-        loss_function = torch.nn.functional.nll_loss()
 
         # Train model and compute metrics
-        for epoch in range(20):
+        for epoch in range(1000):
             t_initial = datetime.now()
-            model, optimizer = train(train_data, model, optimizer, loss_function)
+            model, optimizer = train(train_data, model, optimizer)
             train_acc = test(train_data, model)
             test_acc = test(test_data, model)
             t_final = datetime.now()
