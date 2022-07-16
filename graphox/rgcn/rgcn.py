@@ -22,6 +22,7 @@ import torch
 from graphox.rgcn.data.immotion.immotion_dataset import ImMotionDataset
 from graphox.rgcn.src import CurvatureGraph, CurvatureValues, CurvatureGraphNN
 from torch_geometric.loader import DataLoader
+from torch.utils.data.dataloader import default_collate
 
 from typing import Any
 
@@ -29,7 +30,6 @@ from typing import Any
 def train(dataset: DataLoader,
           model: CurvatureGraphNN,
           optimizer: Any) -> tuple:
-
     model.train()
     for data in dataset:
         pred = model(data)
@@ -42,7 +42,6 @@ def train(dataset: DataLoader,
 
 def test(dataset: DataLoader,
          model: CurvatureGraphNN) -> float:
-
     # Building out metrics with ignite. Work in progress.
     correct = 0
     for data in dataset:  # Iterate in batches over the training/test dataset.
@@ -55,21 +54,19 @@ def test(dataset: DataLoader,
 def rgcn_trainer(data_path: str,
                  num_trials: int,
                  ricci_filename: str) -> None:
-
     # Slurp up pyg graphs into pyg Dataset
     data_raw = ImMotionDataset(data_path)
 
     # Split into test/train
     train_dataset = data_raw[:658]
     test_dataset = data_raw[658:]
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     # Convert test/train sets to Data Loaders
-    train_data = DataLoader(train_dataset, batch_size=1, shuffle=True)
-    test_data = DataLoader(test_dataset, batch_size=1, shuffle=False)
-
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    train_data = train_data.to(device)
-    test_data = test_data.to(device)
+    train_data = DataLoader(train_dataset, batch_size=1, shuffle=True,
+                            collate_fn=lambda x: tuple(x_.to(device) for x_ in default_collate(x)))
+    test_data = DataLoader(test_dataset, batch_size=1, shuffle=False,
+                           collate_fn=lambda x: tuple(x_.to(device) for x_ in default_collate(x)))
 
     # Structure edge curvatures in CurvatureValues instance
     curvature_values = CurvatureValues(data_raw[0].num_nodes, ricci_filename=ricci_filename).w_mul
