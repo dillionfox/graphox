@@ -76,6 +76,7 @@ class CurvatureGraphNN(torch.nn.Module):
         # x = torch.nn.functional.dropout(data.x, p=0.6, training=self.training)
 
         # 1. Obtain node embeddings
+        print(data)
         x = self.conv1(data.x, data.edge_index)
         x = x.relu()
         x = self.conv2(x, data.edge_index)
