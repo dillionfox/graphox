@@ -54,13 +54,14 @@ def test(dataset: DataLoader,
 def rgcn_trainer(data_path: str,
                  num_trials: int,
                  ricci_filename: str) -> None:
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
     # Slurp up pyg graphs into pyg Dataset
-    data_raw = ImMotionDataset(data_path)
+    data_raw = ImMotionDataset(data_path, device=device)
 
     # Split into test/train
     train_dataset = data_raw[:658]
     test_dataset = data_raw[658:]
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     # Convert test/train sets to Data Loaders
     train_data = DataLoader(train_dataset, batch_size=1, shuffle=True,

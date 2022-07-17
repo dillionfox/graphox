@@ -16,18 +16,19 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 """
 
-
 import os
 import pathlib
+from abc import ABC
 
 import torch
-from torch_geometric.data import InMemoryDataset
+from torch_geometric.data import Dataset
 
 
-class ImMotionDataset(InMemoryDataset):
-    def __init__(self, root, transform=None, pre_transform=None, pre_filter=None):
+class ImMotionDataset(Dataset, ABC):
+    def __init__(self, root, transform=None, pre_transform=None, pre_filter=None, device=None):
         super().__init__(root, transform, pre_transform, pre_filter)
         self.data, self.slices = torch.load(self.processed_paths[0])
+        self.device = device
 
     def __str__(self):
         return r"""Class for building pyg dataset for ImMotion data
@@ -46,7 +47,11 @@ class ImMotionDataset(InMemoryDataset):
 
     def process(self):
         # Read data into huge `Data` list.
-        data_list = [torch.load(filepath.absolute()) for filepath in pathlib.Path(self.root).glob('*.pt')]
+        if self.device == 'cuda':
+            data_list = [torch.load(filepath.absolute(), map_location=lambda storage, loc: storage.cuda(0)) for filepath in
+                         pathlib.Path(self.root).glob('*.pt')]
+        else:
+            data_list = [torch.load(filepath.absolute()) for filepath in pathlib.Path(self.root).glob('*.pt')]
 
         if self.pre_filter is not None:
             data_list = [data for data in data_list if self.pre_filter(data)]
