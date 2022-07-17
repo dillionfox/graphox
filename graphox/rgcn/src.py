@@ -42,14 +42,15 @@ class CurvatureValues(object):
 
 
 class CurvatureGraph(object):
-    def __init__(self, G, curvature_values: CurvatureValues, num_classes=2):
+    def __init__(self, G, curvature_values: CurvatureValues, num_classes=2, device=None):
         self.G = G
         self.num_classes = num_classes
         self.curvature_values = curvature_values
+        self.device = device
 
     def call(self):
         w_mul = self.compute_convolution_weights(self.G.edge_index, self.curvature_values)
-        model = CurvatureGraphNN(self.G.num_features, self.num_classes, w_mul, d_hidden=64, p=0.5)
+        model = CurvatureGraphNN(self.G.num_features, self.num_classes, w_mul, d_hidden=64, p=0.5, device=self.device)
         return model
 
     @staticmethod
@@ -61,11 +62,11 @@ class CurvatureGraph(object):
 
 
 class CurvatureGraphNN(torch.nn.Module):
-    def __init__(self, num_features, num_classes, w_mul, d_hidden=64, p=0.0):
+    def __init__(self, num_features, num_classes, w_mul, d_hidden=64, p=0.0, device=None):
         super(CurvatureGraphNN, self).__init__()
-        self.conv1 = MessagePassingConvLayer(num_features, d_hidden, w_mul, p=p)
-        self.conv2 = MessagePassingConvLayer(d_hidden, d_hidden, w_mul, p=p)
-        self.lin = Linear(d_hidden, num_classes)
+        self.conv1 = MessagePassingConvLayer(num_features, d_hidden, w_mul, p=p, device=device)
+        self.conv2 = MessagePassingConvLayer(d_hidden, d_hidden, w_mul, p=p, device=device)
+        self.lin = Linear(d_hidden, num_classes, device=device)
 
     def reset_parameters(self):
         self.conv1.reset_parameters()
@@ -92,12 +93,12 @@ class CurvatureGraphNN(torch.nn.Module):
 
 
 class MessagePassingConvLayer(MessagePassing, ABC):
-    def __init__(self, in_channels, out_channels, weight_agg, p=0.6):
+    def __init__(self, in_channels, out_channels, weight_agg, p=0.6, device=None):
         super(MessagePassingConvLayer, self).__init__(aggr='add')
         self.dropout = p
         self.out_channels = out_channels
         self.weight_agg = weight_agg
-        self.lin = torch.nn.Linear(in_channels, out_channels)
+        self.lin = torch.nn.Linear(in_channels, out_channels, device=device)
 
     def reset_parameters(self):
         self.lin.reset_parameters()
