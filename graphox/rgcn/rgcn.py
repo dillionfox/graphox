@@ -76,11 +76,10 @@ def rgcn_trainer(data_path: str,
     for i in range(num_trials):
 
         # Instantiate CurvatureGraph object with graph topology and edge curvatures
-        curvature_graph_obj = CurvatureGraph(data_raw[0], curvature_values)
+        curvature_graph_obj = CurvatureGraph(data_raw[0], curvature_values, device=device)
 
         # Construct RGCN model
         model = curvature_graph_obj.call()
-        model.to(device)
 
         # Initialize optimizer and loss function
         optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
