@@ -54,6 +54,7 @@ def test(dataset: DataLoader,
 def rgcn_trainer(data_path: str,
                  num_trials: int,
                  ricci_filename: str) -> None:
+
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     # Slurp up pyg graphs into pyg Dataset

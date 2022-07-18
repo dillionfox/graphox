@@ -38,7 +38,9 @@ class CurvatureValues(object):
         df = pd.read_csv(self.ricci_filename, header=None, names=[0, 1, 2])
         w_mul = np.array(df.sort_values(by=[0, 1])[2].tolist())
         w_mul += np.float(abs(min(w_mul)))
-        self.w_mul = torch.from_numpy(w_mul)
+        w_mul = torch.from_numpy(w_mul)
+        w_mul.to(device='cuda' if torch.cuda.is_available() else 'cpu')
+        self.w_mul = w_mul
 
 
 class CurvatureGraph(object):
