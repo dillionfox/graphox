@@ -71,6 +71,9 @@ class ImMotionGraphBuilder(BaseGraphBuilder):
             y = torch.tensor(df_anno[df_anno['RNASEQ_SAMPLE_ID'] == col]['response'].to_numpy(), dtype=torch.float)
             # Store patient/sample response/label as graph attribute
             G_i['y'] = y
+            if len(y) == 0:
+                print('wtf??', y)
+                continue
             # Save patient/sample graph
             torch.save(G_i, self.pt_graphs_path.joinpath('G_{}.pt'.format(col)))
 
