@@ -30,11 +30,11 @@ class ImMotionDataset(Dataset, ABC):
 
     @property
     def raw_file_names(self):
-        return os.listdir(self.root)
+        return pathlib.Path(self.root).glob('G_EA*.pt')
 
     @property
     def processed_file_names(self):
-        return os.listdir(self.root)
+        return pathlib.Path(self.root).glob('G_EA*.pt')
 
     def process(self):
         idx = 0
