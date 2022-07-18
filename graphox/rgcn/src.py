@@ -39,8 +39,7 @@ class CurvatureValues(object):
         w_mul = np.array(df.sort_values(by=[0, 1])[2].tolist())
         w_mul += np.float(abs(min(w_mul)))
         w_mul = torch.from_numpy(w_mul)
-        w_mul.to(device='cuda' if torch.cuda.is_available() else 'cpu')
-        self.w_mul = w_mul
+        self.w_mul = w_mul.to(device='cuda' if torch.cuda.is_available() else 'cpu')
 
 
 class CurvatureGraph(object):
@@ -56,8 +55,6 @@ class CurvatureGraph(object):
         return model
 
     def compute_convolution_weights(self, edge_index, edge_weight):
-        edge_index.to(device=self.device)
-        edge_weight.to(device=self.device)
         print('1', edge_index.get_device())
         print('2', edge_weight.get_device())
         deg_inv_sqrt = scatter_add(edge_weight, edge_index[0], dim=0).pow(-0.5)
