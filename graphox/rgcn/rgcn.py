@@ -34,7 +34,7 @@ def train(dataset: DataLoader,
     model.train()
     for data in dataset:
         data = data.to(device)
-        pred = model(data)
+        pred = model(data).to(device)
         loss = torch.nn.functional.nll_loss(pred, data.y.type(torch.LongTensor))
         loss.backward()
         optimizer.step()
