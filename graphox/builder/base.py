@@ -243,7 +243,7 @@ class BaseGraphBuilder(ABC):
         :return: None
         """
         # Make dataframe containing all nodes from graph
-        G_df = pd.DataFrame(self.G.nodes, columns=['gene']).reset_index()
+        G_df = pd.DataFrame(self.G.nodes, columns=['gene']).reset_index(drop=True)
 
         # Merge omics data into node dataframe. This puts the omics data in the order expected by pytorch
         self.tpm_df = G_df.merge(self.omics_data, left_on='gene', right_on='gene').dropna().drop_duplicates(
