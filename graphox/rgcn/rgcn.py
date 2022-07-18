@@ -78,6 +78,7 @@ def rgcn_trainer(data_path: str,
         # Instantiate CurvatureGraph object with graph topology and edge curvatures
         sample_graph = data_raw[0]
         sample_graph.to(device)
+        curvature_values.to(device)
         curvature_graph_obj = CurvatureGraph(sample_graph, curvature_values, device=device)
 
         # Construct RGCN model

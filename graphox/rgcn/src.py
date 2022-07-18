@@ -44,7 +44,7 @@ class CurvatureValues(object):
 
 
 class CurvatureGraph(object):
-    def __init__(self, G, curvature_values: CurvatureValues, num_classes=2, device=None):
+    def __init__(self, G, curvature_values: torch.tensor, num_classes=2, device=None):
         self.G = G
         self.num_classes = num_classes
         self.curvature_values = curvature_values
@@ -56,6 +56,8 @@ class CurvatureGraph(object):
         return model
 
     def compute_convolution_weights(self, edge_index, edge_weight):
+        print('1', edge_index.get_device())
+        print('2', edge_weight.get_device())
         deg_inv_sqrt = scatter_add(edge_weight, edge_index[0], dim=0).pow(-0.5)
         deg_inv_sqrt[deg_inv_sqrt == float('inf')] = 0
         w_mul = deg_inv_sqrt[edge_index[0]] * edge_weight * deg_inv_sqrt[edge_index[1]]
