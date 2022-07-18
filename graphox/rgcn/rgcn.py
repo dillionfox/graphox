@@ -17,6 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 from datetime import datetime
+import random
 
 import torch
 from graphox.rgcn.data.immotion.immotion_dataset import ImMotionDataset
@@ -63,15 +64,25 @@ def test(dataset: DataLoader,
 
 def rgcn_trainer(data_path: str,
                  num_trials: int,
+                 learning_rate: float,
                  ricci_filename: str) -> None:
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     # Slurp up pyg graphs into pyg Dataset
     data_raw = ImMotionDataset(data_path)
 
+    number_patients = data_raw.len()
+    patient_indices = list(range(number_patients))
+
+    train_fraction = 0.9
+    number_train_points = int(number_patients * train_fraction)
+
+    train_indices = random.sample(patient_indices, number_train_points)
+    test_indices = list(set(patient_indices) - set(train_indices))
+
     # Split into test/train
-    train_dataset = data_raw[:658]
-    test_dataset = data_raw[658:]
+    train_dataset = data_raw[train_indices]
+    test_dataset = data_raw[test_indices]
 
     # Convert test/train sets to Data Loaders
     train_data = DataLoader(train_dataset, batch_size=1, shuffle=True)
@@ -94,7 +105,7 @@ def rgcn_trainer(data_path: str,
         model = curvature_graph_obj.call()
 
         # Initialize optimizer and loss function
-        optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+        optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
         # Train model and compute metrics
         for epoch in range(1000):
