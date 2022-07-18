@@ -34,15 +34,9 @@ def train(dataset: DataLoader,
     model.train()
     for data in dataset:
         out = model(data)
-        if device != 'cuda':
-            pred = out.max(1)[1].to(dtype=torch.LongTensor)
-            y = data.y.to(dtype=torch.LongTensor)
-        else:
-            pred = out.max(1)[1].cuda()
-            y = data.y.cuda()
-        loss = torch.nn.functional.nll_loss(pred,
-                                            y).cuda() if torch.cuda.is_available() else torch.nn.functional.nll_loss(
-            pred, y)
+        pred = out.max(1)[1].to(device='cpu').long()
+        y = data.y.to(device='cpu').long()
+        loss = torch.nn.functional.nll_loss(pred, y)
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
