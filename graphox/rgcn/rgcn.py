@@ -33,9 +33,8 @@ def train(dataset: DataLoader,
           device) -> tuple:
     model.train()
     for data in dataset:
-        data = data.to(device)
-        pred = model(data).to(device)
-        loss = torch.nn.functional.nll_loss(pred, data.y.type(torch.LongTensor))
+        pred = model(data)
+        loss = torch.nn.functional.nll_loss(pred, data.y.type(torch.LongTensor).to(device))
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
