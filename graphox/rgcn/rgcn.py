@@ -37,10 +37,8 @@ def train(dataset: DataLoader,
     model.train()
     for data in dataset:
         out = model(data)
-        pred = out.max(1)[1].long().cpu()
-        y = data.y.long().cpu()
-        loss = torch.nn.functional.nll_loss(pred, y)
-        # loss = criterion(out.to(device='cpu'), data.y.to(device='cpu').long())
+        y = data.y
+        loss = torch.nn.functional.nll_loss(out.cpu(), y.cpu().long())
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
