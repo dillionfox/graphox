@@ -35,11 +35,11 @@ def train(dataset: DataLoader,
     for data in dataset:
         out = model(data)
         if device != 'cuda':
-            pred = out.max(1)[1].to(device=device, dtype=torch.LongTensor)
-            y = data.y.to(device=device, dtype=torch.LongTensor)
+            pred = out.max(1)[1].to(dtype=torch.LongTensor)
+            y = data.y.to(dtype=torch.LongTensor)
         else:
-            pred = out.max(1)[1].to(device=device, dtype=torch.cuda.LongTensor)
-            y = data.y.to(device=device, dtype=torch.cuda.LongTensor)
+            pred = out.max(1)[1].to(dtype=torch.cuda.LongTensor)
+            y = data.y.to(dtype=torch.cuda.LongTensor)
         loss = torch.nn.functional.nll_loss(pred, y)
         loss.backward()
         optimizer.step()
