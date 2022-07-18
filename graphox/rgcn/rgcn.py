@@ -29,9 +29,11 @@ from typing import Any
 
 def train(dataset: DataLoader,
           model: CurvatureGraphNN,
-          optimizer: Any) -> tuple:
+          optimizer: Any,
+          device) -> tuple:
     model.train()
     for data in dataset:
+        data = data.to(device)
         pred = model(data)
         loss = torch.nn.functional.nll_loss(pred, data.y.type(torch.LongTensor))
         loss.backward()
@@ -90,7 +92,7 @@ def rgcn_trainer(data_path: str,
         # Train model and compute metrics
         for epoch in range(1000):
             t_initial = datetime.now()
-            model, optimizer = train(train_data, model, optimizer)
+            model, optimizer = train(train_data, model, optimizer, device)
             train_acc = test(train_data, model)
             test_acc = test(test_data, model)
             t_final = datetime.now()
