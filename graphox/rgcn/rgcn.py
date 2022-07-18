@@ -40,14 +40,8 @@ def train(dataset: DataLoader,
         else:
             pred = out.max(1)[1].cuda()
             y = data.y.cuda()
-        print(type(pred), type(y))
-        try:
-            loss = torch.nn.functional.nll_loss(pred, y)
-        except RuntimeError:
-            loss = torch.nn.functional.nll_loss(pred.float(), y.float())
-        except Exception as e:
-            print('fuck me')
-            print(e)
+        criterion = torch.nn.functional.nll_loss().cuda() if torch.cuda.is_available() else torch.nn.functional.nll_loss()
+        loss = criterion(pred, y)
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
