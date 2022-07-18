@@ -38,7 +38,7 @@ class ImMotionDataset(Dataset, ABC):
 
     def process(self):
         idx = 0
-        for raw_path in pathlib.Path(self.root).glob('*.pt'):
+        for raw_path in pathlib.Path(self.root).glob('G_EA*.pt'):
             # Read data from `raw_path`.
             data = torch.load(raw_path)
             data.to(device='cuda' if torch.cuda.is_available() else 'cpu')
