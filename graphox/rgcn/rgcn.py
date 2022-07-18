@@ -38,8 +38,8 @@ def train(dataset: DataLoader,
             pred = out.max(1)[1].to(dtype=torch.LongTensor)
             y = data.y.to(dtype=torch.LongTensor)
         else:
-            pred = out.max(1)[1].to(dtype=torch.cuda.LongTensor)
-            y = data.y.to(dtype=torch.cuda.LongTensor)
+            pred = out.max(1)[1].cuda().long()
+            y = data.y.cuda().long()
         loss = torch.nn.functional.nll_loss(pred, y)
         loss.backward()
         optimizer.step()
