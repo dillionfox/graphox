@@ -38,7 +38,12 @@ def train(dataset: DataLoader,
     for data in dataset:
         out = model(data)
         y = data.y
-        loss = torch.nn.functional.nll_loss(out.cpu(), y.cpu().long())
+        try:
+            loss = torch.nn.functional.nll_loss(out.cpu(), y.cpu().long())
+        except Exception as e:
+            print('Data:', data)
+            print('y:', y)
+            exit()
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
