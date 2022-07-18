@@ -38,7 +38,7 @@ class ImMotionDataset(Dataset, ABC):
 
     def process(self):
         idx = 0
-        for raw_path in self.raw_paths:
+        for raw_path in pathlib.Path(self.root).glob('*.pt'):
             # Read data from `raw_path`.
             data = torch.load(raw_path)
 
@@ -90,8 +90,8 @@ class ImMotionDatasetInMemory(InMemoryDataset, ABC):
         # Read data into huge `Data` list.
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         if device == 'cuda':
-            data_list = [torch.load(filepath.absolute(), map_location=lambda storage, loc: storage.cuda(0)) for filepath in
-                         pathlib.Path(self.root).glob('*.pt')]
+            data_list = [torch.load(filepath.absolute(), map_location=lambda storage, loc: storage.cuda(0)) for filepath
+                         in pathlib.Path(self.root).glob('*.pt')]
         else:
             data_list = [torch.load(filepath.absolute()) for filepath in pathlib.Path(self.root).glob('*.pt')]
 
