@@ -55,8 +55,6 @@ class CurvatureGraph(object):
         return model
 
     def compute_convolution_weights(self, edge_index, edge_weight):
-        print('1', edge_index.get_device())
-        print('2', edge_weight.get_device())
         deg_inv_sqrt = scatter_add(edge_weight, edge_index[0], dim=0).pow(-0.5)
         deg_inv_sqrt[deg_inv_sqrt == float('inf')] = 0
         w_mul = deg_inv_sqrt[edge_index[0]] * edge_weight * deg_inv_sqrt[edge_index[1]]
@@ -78,7 +76,6 @@ class CurvatureGraphNN(torch.nn.Module):
         # x = torch.nn.functional.dropout(data.x, p=0.6, training=self.training)
 
         # 1. Obtain node embeddings
-        print(data)
         x = self.conv1(data.x, data.edge_index)
         x = x.relu()
         x = self.conv2(x, data.edge_index)
