@@ -60,8 +60,6 @@ class ImMotionGraphBuilder(BaseGraphBuilder):
 
         # Create a new pyg graph for each patient and store omics + response as attributes
         self.pt_graphs_path.mkdir(parents=True, exist_ok=True)
-        print(self.tpm_df.columns)
-        exit()
         for col in self.tpm_df.drop(columns=['gene']).columns:
             # Make a copy
             G_i = self.Gp
