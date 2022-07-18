@@ -64,10 +64,8 @@ def rgcn_trainer(data_path: str,
     test_dataset = data_raw[658:]
 
     # Convert test/train sets to Data Loaders
-    train_data = DataLoader(train_dataset, batch_size=1, shuffle=True,
-                            collate_fn=lambda x: tuple(x_.to(device) for x_ in default_collate(x)))
-    test_data = DataLoader(test_dataset, batch_size=1, shuffle=False,
-                           collate_fn=lambda x: tuple(x_.to(device) for x_ in default_collate(x)))
+    train_data = DataLoader(train_dataset, batch_size=1, shuffle=True)
+    test_data = DataLoader(test_dataset, batch_size=1, shuffle=False)
 
     # Structure edge curvatures in CurvatureValues instance
     curvature_values = CurvatureValues(data_raw[0].num_nodes, ricci_filename=ricci_filename).w_mul
