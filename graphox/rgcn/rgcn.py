@@ -27,6 +27,9 @@ from torch.utils.data.dataloader import default_collate
 from typing import Any
 
 
+criterion = torch.nn.CrossEntropyLoss()
+
+
 def train(dataset: DataLoader,
           model: CurvatureGraphNN,
           optimizer: Any,
@@ -34,10 +37,10 @@ def train(dataset: DataLoader,
     model.train()
     for data in dataset:
         out = model(data)
-        pred = out.max(1)[1].to(device='cpu').long()
-        y = data.y.to(device='cpu').long()
+        # pred = out.max(1)[1].to(device='cpu').long()
+        # y = data.y.to(device='cpu').long()
         # loss = torch.nn.functional.nll_loss(pred, y)
-        loss = torch.nn.NLLLoss(pred, y)
+        loss = criterion(out, data.y)
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
