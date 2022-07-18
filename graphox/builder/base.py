@@ -281,7 +281,7 @@ class BaseGraphBuilder(ABC):
         edge_curvatures.dropna(inplace=True)
 
         edge_curvatures.sort_values(by=['ind1', 'ind2'])[['ind1', 'ind2', 'curvature']].to_csv(
-            self.output_dir.joinpath('pt_graphs').joinpath('pt_edge_curvatures.csv'), index=False, header=False)
+            self.edge_curvatures_file_path, index=False, header=False)
 
     @abstractmethod
     def _convert_to_pytorch(self):
