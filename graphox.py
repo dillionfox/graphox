@@ -33,7 +33,7 @@ def _run_rgcn(dataset: str, conf: int, n_procs: int):
     builder.execute()
 
     # Run RGCN model
-    rgcn_trainer(builder.pt_graphs_path, 2, builder.edge_curvatures_file_path)
+    rgcn_trainer(builder.pt_graphs_path, 2, 0.001, builder.edge_curvatures_file_path)
 
 
 def _compute_curvature(dataset: str, conf: int, n_procs: int):
