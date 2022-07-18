@@ -34,7 +34,7 @@ def train(dataset: DataLoader,
     model.train()
     for data in dataset:
         out = model(data)
-        pred = out.max(1)[1].type(torch.FloatTensor)
+        pred = out.max(1)[1].type(torch.FloatTensor).to(device)
         if device != 'cuda':
             y = data.y.type(torch.LongTensor).to(device)
         else:
