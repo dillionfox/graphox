@@ -40,8 +40,9 @@ def train(dataset: DataLoader,
         else:
             pred = out.max(1)[1].cuda()
             y = data.y.cuda()
-        criterion = torch.nn.functional.nll_loss().cuda() if torch.cuda.is_available() else torch.nn.functional.nll_loss()
-        loss = criterion(pred, y)
+        loss = torch.nn.functional.nll_loss(pred,
+                                            y).cuda() if torch.cuda.is_available() else torch.nn.functional.nll_loss(
+            pred, y)
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
@@ -62,7 +63,6 @@ def test(dataset: DataLoader,
 def rgcn_trainer(data_path: str,
                  num_trials: int,
                  ricci_filename: str) -> None:
-
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     # Slurp up pyg graphs into pyg Dataset
