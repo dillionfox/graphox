@@ -41,6 +41,7 @@ class ImMotionDataset(Dataset, ABC):
         for raw_path in pathlib.Path(self.root).glob('*.pt'):
             # Read data from `raw_path`.
             data = torch.load(raw_path)
+            data.to(device='cuda' if torch.cuda.is_available() else 'cpu')
 
             if self.pre_filter is not None and not self.pre_filter(data):
                 continue
@@ -56,7 +57,7 @@ class ImMotionDataset(Dataset, ABC):
 
     def get(self, idx):
         data = torch.load(os.path.join(self.processed_dir, f'data_{idx}.pt'))
-        return data
+        return data.to(device='cuda' if torch.cuda.is_available() else 'cpu')
 
 
 class ImMotionDatasetInMemory(InMemoryDataset, ABC):
