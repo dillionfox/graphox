@@ -40,7 +40,7 @@ def train(dataset: DataLoader,
         # pred = out.max(1)[1].to(device='cpu').long()
         # y = data.y.to(device='cpu').long()
         # loss = torch.nn.functional.nll_loss(pred, y)
-        loss = criterion(out.to(device='cpu'), data.y.to(device='cpu'))
+        loss = criterion(out.to(device='cpu'), data.y.to(device='cpu').long())
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
