@@ -21,10 +21,45 @@ import pathlib
 from abc import ABC
 
 import torch
-from torch_geometric.data import Dataset
+from torch_geometric.data import Dataset, InMemoryDataset
 
 
 class ImMotionDataset(Dataset, ABC):
+    def __init__(self, root, transform=None, pre_transform=None, pre_filter=None):
+        super().__init__(root, transform, pre_transform, pre_filter)
+
+    @property
+    def raw_file_names(self):
+        return os.listdir(self.root)
+
+    @property
+    def processed_file_names(self):
+        return os.listdir(self.root)
+
+    def process(self):
+        idx = 0
+        for raw_path in self.raw_paths:
+            # Read data from `raw_path`.
+            data = torch.load(raw_path)
+
+            if self.pre_filter is not None and not self.pre_filter(data):
+                continue
+
+            if self.pre_transform is not None:
+                data = self.pre_transform(data)
+
+            torch.save(data, os.path.join(self.processed_dir, f'data_{idx}.pt'))
+            idx += 1
+
+    def len(self):
+        return len(self.processed_file_names)
+
+    def get(self, idx):
+        data = torch.load(os.path.join(self.processed_dir, f'data_{idx}.pt'))
+        return data
+
+
+class ImMotionDatasetInMemory(InMemoryDataset, ABC):
     def __init__(self, root, transform=None, pre_transform=None, pre_filter=None):
         super().__init__(root, transform, pre_transform, pre_filter)
         self.data, self.slices = torch.load(self.processed_paths[0])
@@ -43,6 +78,13 @@ class ImMotionDataset(Dataset, ABC):
 
     def download(self):
         pass
+
+    def len(self):
+        return len(self.processed_file_names)
+
+    def get(self, idx):
+        data = torch.load(os.path.join(self.processed_dir, f'data_{idx}.pt'))
+        return data
 
     def process(self):
         # Read data into huge `Data` list.
