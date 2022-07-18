@@ -40,7 +40,14 @@ def train(dataset: DataLoader,
         else:
             pred = out.max(1)[1].cuda()
             y = data.y.cuda()
-        loss = torch.nn.functional.nll_loss(pred, y)
+        print(type(pred), type(y))
+        try:
+            loss = torch.nn.functional.nll_loss(pred, y)
+        except RuntimeError:
+            loss = torch.nn.functional.nll_loss(pred.float(), y.float())
+        except Exception as e:
+            print('fuck me')
+            print(e)
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
