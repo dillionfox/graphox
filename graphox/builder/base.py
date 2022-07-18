@@ -68,7 +68,7 @@ class BaseGraphBuilder(ABC):
         self.orc: GraphCurvature
         self.orc = None
         self.gene_to_pt_ind = dict()
-        self.edge_curvatures_file_path = self.output_dir.joinpath('pt_graphs').joinpath('pt_edge_curvatures.csv')
+        self.edge_curvatures_file_path = self.output_dir.joinpath('pt_edge_curvatures.csv')
         self.pt_graphs_path = self.output_dir.joinpath('pt_graphs')
 
     def __str__(self):
