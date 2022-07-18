@@ -56,9 +56,10 @@ class CurvatureGraph(object):
         return model
 
     def compute_convolution_weights(self, edge_index, edge_weight):
+        edge_index.to(device=self.device)
+        edge_weight.to(device=self.device)
         print('1', edge_index.get_device())
         print('2', edge_weight.get_device())
-        edge_weight.to(self.device)
         deg_inv_sqrt = scatter_add(edge_weight, edge_index[0], dim=0).pow(-0.5)
         deg_inv_sqrt[deg_inv_sqrt == float('inf')] = 0
         w_mul = deg_inv_sqrt[edge_index[0]] * edge_weight * deg_inv_sqrt[edge_index[1]]

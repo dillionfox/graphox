@@ -11,7 +11,7 @@ from pathlib import Path
 output_dir: Path = Path('output')
 
 
-def _run_rgcn(dataset: str, n_procs: int):
+def _run_rgcn(dataset: str, conf: int, n_procs: int):
     # Set paths, choose project
     root_dir = 'data/raw/'
 
@@ -28,7 +28,7 @@ def _run_rgcn(dataset: str, n_procs: int):
 
     # Instantiate builder object to build graphs
     builder = ImMotionGraphBuilder(omics_data_, omics_anno_, string_aliases_file_, string_edges_file_,
-                                   make_pytorch_graphs=True, n_procs=n_procs)
+                                   confidence_level=conf, make_pytorch_graphs=True, n_procs=n_procs)
     # Build graphs and write output to disk
     builder.execute()
 
@@ -36,7 +36,7 @@ def _run_rgcn(dataset: str, n_procs: int):
     rgcn_trainer(builder.pt_graphs_path, 2, builder.edge_curvatures_file_path)
 
 
-def _compute_curvature(dataset: str, n_procs: int):
+def _compute_curvature(dataset: str, conf: int, n_procs: int):
     # Set paths, choose project
     root_dir = 'data/raw/'
     total_curvature_output = output_dir.joinpath('{}_total_curvatures.csv'.format(dataset))
@@ -55,7 +55,7 @@ def _compute_curvature(dataset: str, n_procs: int):
 
     # Instantiate builder object to build graphs
     builder = ImMotionGraphBuilder(omics_data_, omics_anno_, string_aliases_file_, string_edges_file_,
-                                   make_pytorch_graphs=False, n_procs=n_procs)
+                                   confidence_level=conf, make_pytorch_graphs=False, n_procs=n_procs)
 
     # Build graphs and write output to disk
     builder.execute()
@@ -64,9 +64,6 @@ def _compute_curvature(dataset: str, n_procs: int):
     builder.compute_nodal_curvatures()
 
     # Compute curvature per patient and total curvature
-    # curvature_per_patient, nodal_curvature = compute_nodal_curvatures(builder.orc, builder.omics_data)
-    # print(curvature_per_patient)
-    # curvature_per_patient.to_csv(total_curvature_output)
     builder.compute_curvature_per_sample()
     print(builder.total_curvature_per_sample)
     print(builder.nodal_curvatures_per_sample)
@@ -77,19 +74,20 @@ def _compute_curvature(dataset: str, n_procs: int):
 @click.command()
 @click.option('--dataset', default='immotion', help='Pre-defined test dataset')
 @click.option('--n_procs', default=4, help='Pre-defined test dataset')
+@click.option('--conf', default=900, help='Pre-defined test dataset')
 @click.option('--compute_curvature', is_flag=True)
 @click.option('--run_rgcn', is_flag=True)
-def main(dataset: str, n_procs: int, compute_curvature, run_rgcn):
+def main(dataset: str, n_procs: int, conf: int, compute_curvature, run_rgcn):
     # Make sure predefined project is chosen
     if dataset not in ['immotion', 'tcat']:
         print('Dataset not recognized')
         exit()
 
     if compute_curvature:
-        _compute_curvature(dataset, n_procs)
+        _compute_curvature(dataset, conf, n_procs)
 
     if run_rgcn:
-        _run_rgcn(dataset, n_procs)
+        _run_rgcn(dataset, conf, n_procs)
 
 
 if __name__ == "__main__":

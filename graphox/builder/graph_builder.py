@@ -33,11 +33,13 @@ class ImMotionGraphBuilder(BaseGraphBuilder):
             omics_annotation_file: str,
             string_aliases_file: str,
             string_edges_file: str,
+            confidence_level: int = 900,
             make_pytorch_graphs: bool = False,
             n_procs: int = 4,
     ):
         super().__init__(omics_data_file, omics_annotation_file,
                          string_aliases_file, string_edges_file,
+                         confidence_level=confidence_level,
                          make_pytorch_graphs=make_pytorch_graphs,
                          n_procs=n_procs)
 
