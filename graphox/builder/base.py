@@ -40,7 +40,8 @@ class BaseGraphBuilder(ABC):
                  graph_file_name: str = 'G.pkl',
                  curvature_file_name: str = 'curvatures.csv',
                  n_procs: int = 4,
-                 make_pytorch_graphs: bool = True
+                 make_pytorch_graphs: bool = True,
+                 apply_pagerank: bool = False,
                  ):
         self.omics_data_file = omics_data_file
         self.omics_data: pd.DataFrame = pd.DataFrame([])
@@ -57,6 +58,7 @@ class BaseGraphBuilder(ABC):
         self.curvature_file_name = self.output_dir.joinpath(curvature_file_name)
         self.n_procs = n_procs
         self.make_pytorch_graphs = make_pytorch_graphs
+        self.apply_pagerank = apply_pagerank
         self.edges_df: pd.DataFrame = pd.DataFrame([])
         self.G: nx.Graph
         self.G = nx.Graph()
@@ -86,6 +88,10 @@ class BaseGraphBuilder(ABC):
 
         print("Computing edge curvatures...")
         self.compute_edge_curvatures()
+
+        if self.apply_pagerank:
+            print("Applying pagerank algorithm to reduce graph...")
+            self._pagerank()
 
         if self.make_pytorch_graphs:
             print("Converting to PyTorch Geometric and writing individual graphs...")
@@ -234,6 +240,9 @@ class BaseGraphBuilder(ABC):
         curvatures_df, nodal_curvatures = self.orc.curvature_per_pat(self.omics_data)
         self.total_curvature_per_sample = curvatures_df
         self.nodal_curvatures_per_sample = nodal_curvatures
+
+    def _pagerank(self):
+        pass
 
     def _pytorch_preprocess(self) -> None:
         r"""Preprocessing step. Goal is to convert from a base NetworkX graph to a set of
