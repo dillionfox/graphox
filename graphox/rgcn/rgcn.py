@@ -48,7 +48,7 @@ def train(dataset: DataLoader,
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
-    return model, optimizer
+    return model, optimizer, loss
 
 
 def test(dataset: DataLoader,
@@ -64,7 +64,7 @@ def test(dataset: DataLoader,
 
 def rgcn_trainer(data_path: str,
                  num_trials: int,
-                 learning_rate: float,
+                 config: dict,
                  ricci_filename: str) -> None:
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -97,20 +97,21 @@ def rgcn_trainer(data_path: str,
 
         # Instantiate CurvatureGraph object with graph topology and edge curvatures
         sample_graph = data_raw[0]
-        sample_graph.to(device)
-        curvature_values.to(device)
         curvature_graph_obj = CurvatureGraph(sample_graph, curvature_values, device=device)
 
         # Construct RGCN model
         model = curvature_graph_obj.call()
 
         # Initialize optimizer and loss function
-        optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+        optimizer = torch.optim.Adam(model.parameters(),
+                                     lr=config['learning_rate'],
+                                     weight_decay=config['weight_decay'],
+                                     )
 
         # Train model and compute metrics
         for epoch in range(1000):
             t_initial = datetime.now()
-            model, optimizer = train(train_data, model, optimizer, device)
+            model, optimizer, loss = train(train_data, model, optimizer, device)
             train_acc = test(train_data, model)
             test_acc = test(test_data, model)
             t_final = datetime.now()
