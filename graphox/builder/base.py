@@ -298,3 +298,18 @@ class BaseGraphBuilder(ABC):
         'graph_builder.py' to see an example of what should happen in this class.
         """
         return
+
+
+class PageRanker(object):
+    def __init__(
+            self,
+            G: nx.Graph,
+            marker_path: str = 'data/raw/io_markers/ICI_genes.csv'
+    ):
+        self.G = G
+        self.marker_path = marker_path
+        self.markers: pd.DataFrame = pd.DataFrame([])
+        self._read_markers()
+
+    def _read_markers(self):
+        self.markers = pd.read_csv(self.marker_path, index_col=0)
