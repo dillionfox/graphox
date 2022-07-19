@@ -1,5 +1,3 @@
-from rgcn.rgcn import train, test
-
 from functools import partial
 import numpy as np
 import os
@@ -20,6 +18,7 @@ import random
 import torch
 from graphox.rgcn.data.immotion.immotion_dataset import ImMotionDataset
 from graphox.rgcn.src import CurvatureGraph, CurvatureValues, CurvatureGraphNN
+from graphox.rgcn.rgcn import train, test
 from torch_geometric.loader import DataLoader
 from torch.utils.data.dataloader import default_collate
 
@@ -29,8 +28,8 @@ from typing import Any
 def train_rgcn(config: dict,
                num_trials: int = 10) -> None:
 
-    pt_graphs_path = 'output/pt_graphs'
-    edge_curvatures_file_path = 'output/pt_edge_curvatures.csv'
+    pt_graphs_path = '/home/dfox/code/graphox/output/pt_graphs'
+    edge_curvatures_file_path = '/home/dfox/code/graphox/output/pt_edge_curvatures.csv'
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -60,7 +59,6 @@ def train_rgcn(config: dict,
     # Train 'num_trials' models
     loss = None
     train_acc = None
-    print('Trial, Epoch, Train acc, Test acc, Time')
     for i in range(num_trials):
 
         # Instantiate CurvatureGraph object with graph topology and edge curvatures
@@ -83,7 +81,6 @@ def train_rgcn(config: dict,
             train_acc = test(train_data, model)
             test_acc = test(test_data, model)
             t_final = datetime.now()
-            print(i, epoch, train_acc, test_acc, t_final - t_initial)
 
         with tune.checkpoint_dir(i) as checkpoint_dir:
             path = os.path.join(checkpoint_dir, "checkpoint")
@@ -96,7 +93,7 @@ def main():
 
     config = {
         "learning_rate": tune.loguniform(1e-4, 1e-1),
-        "weight_decay": tune.loguniform(0, 1e-1),
+        "weight_decay": tune.uniform(0, 1e-1),
     }
 
     scheduler = ASHAScheduler(
@@ -107,7 +104,6 @@ def main():
         reduction_factor=2)
 
     reporter = CLIReporter(
-        # parameter_columns=["l1", "l2", "lr", "batch_size"],
         metric_columns=["loss", "accuracy", "training_iteration"])
 
     result = tune.run(
