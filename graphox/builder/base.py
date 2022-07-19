@@ -304,12 +304,47 @@ class PageRanker(object):
     def __init__(
             self,
             G: nx.Graph,
+            n_nodes: int = 500,
+            max_iter: int = 100,
             marker_path: str = 'data/raw/io_markers/ICI_genes.csv'
     ):
         self.G = G
+        self.n_nodes = n_nodes
+        self.max_iter = max_iter
         self.marker_path = marker_path
         self.markers: pd.DataFrame = pd.DataFrame([])
+        self.execute()
+
+    def __str__(self) -> str:
+        return r"""This class uses the Page Rank algorithm to identify
+        the most relevant nodes to the nodes marked by "personalization"
+        scores. The node personalization scores are set to 1 if the gene
+        is known to be involved in IO therapies and 0 otherwise. 
+        """
+
+    def execute(self) -> None:
         self._read_markers()
+        self._create_personalization()
+        self._compute_pagerank()
+        self._extract_largest_subgraph()
 
     def _read_markers(self):
         self.markers = pd.read_csv(self.marker_path, index_col=0)
+
+    def _create_personalization(self):
+        genes = pd.DataFrame(list(self.G.nodes), columns=['gene'])
+        gene_list = self.markers['gene'].tolist()
+        genes['personalization'] = genes['gene'].apply(lambda x: 1 if x in gene_list else 0)
+        self.personalization = dict(zip(genes['gene'], genes['personalization']))
+
+    def _compute_pagerank(self):
+        scores = nx.pagerank(self.G, personalization=self.personalization, max_iter=self.max_iter, tol=1e-06)
+        scores_df = pd.DataFrame([scores.keys(), scores.values()], index=['gene', 'score']).T
+        top_scores_df = scores_df.sort_values(by='score', ascending=False)[:self.n_nodes]
+        G_top = nx.subgraph_view(self.G, filter_node=lambda x: x in top_scores_df['gene'].tolist())
+        self.G_top = G_top
+
+    def _extract_largest_subgraph(self):
+        G_cc = [self.G_top.subgraph(c).copy() for c in nx.connected_components(self.G_top) if
+                c == max(nx.connected_components(self.G_top), key=len)][0]
+        self.G_cc = G_cc
