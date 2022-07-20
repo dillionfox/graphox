@@ -2,7 +2,7 @@ import os
 
 import click
 
-from graphox.builder.graph_builder import ImMotionGraphBuilder
+from graphox.builder.graph_builder import ImMotionCurvatureGraphBuilder
 from graphox.graph_curvature.curvature import compute_nodal_curvatures
 from graphox.rgcn.rgcn import rgcn_trainer
 from pathlib import Path
@@ -27,8 +27,8 @@ def _run_rgcn(dataset: str, conf: int, n_procs: int):
     string_edges_file_ = os.path.join(root_dir, 'string/9606.protein.links.v11.5.txt')
 
     # Instantiate builder object to build graphs
-    builder = ImMotionGraphBuilder(omics_data_, omics_anno_, string_aliases_file_, string_edges_file_,
-                                   confidence_level=conf, make_pytorch_graphs=True, n_procs=n_procs)
+    builder = ImMotionCurvatureGraphBuilder(omics_data_, omics_anno_, string_aliases_file_, string_edges_file_,
+                                            confidence_level=conf, make_pytorch_graphs=True, n_procs=n_procs)
     # Build graphs and write output to disk
     builder.execute()
 
@@ -59,8 +59,8 @@ def _compute_curvature(dataset: str, conf: int, n_procs: int):
     string_edges_file_ = os.path.join(root_dir, 'string/9606.protein.links.v11.5.txt')
 
     # Instantiate builder object to build graphs
-    builder = ImMotionGraphBuilder(omics_data_, omics_anno_, string_aliases_file_, string_edges_file_,
-                                   confidence_level=conf, make_pytorch_graphs=False, n_procs=n_procs)
+    builder = ImMotionCurvatureGraphBuilder(omics_data_, omics_anno_, string_aliases_file_, string_edges_file_,
+                                            confidence_level=conf, make_pytorch_graphs=False, n_procs=n_procs)
 
     # Build graphs and write output to disk
     builder.execute()

@@ -23,13 +23,25 @@ import dask.dataframe as dd
 import networkx as nx
 import numpy as np
 import pandas as pd
+import torch_geometric
 from torch_geometric.utils.convert import from_networkx
 
 from graphox.graph_curvature.curvature import GraphCurvature
 
 
-class BaseGraphBuilder(ABC):
+class CurvatureGraphBuilder(ABC):
+    r"""This object does the following:
 
+        - Construct a NetworkX Graph from a PPI database (STRING)
+        - Compute Ollivier-Ricci Curvature of the graph
+        - (Optional) Reduce the size of the graph using the Page Rank Algorithm
+        - (Optional) Construct a PyTorch Geometric graph embedded with curvature values
+
+    This is an Abstract Base Class and is intended to be built upon for specific omics datasets.
+    Please see graphox/builder/graph_builder.py for implementations. The only abstract method
+    that must be defined is "_create_patient_graphs".
+
+    """
     def __init__(self,
                  omics_data_file: str,
                  omics_annotation_file: str,
@@ -62,6 +74,10 @@ class BaseGraphBuilder(ABC):
         self.edges_df: pd.DataFrame = pd.DataFrame([])
         self.G: nx.Graph
         self.G = nx.Graph()
+        self.Gp: torch_geometric.data
+        self.Gp = None
+        self.tpm_df: pd.DataFrame
+        self.tpm_df = pd.DataFrame([])
         self.edge_curvatures: pd.DataFrame
         self.edge_curvatures = pd.DataFrame([])
         self.edge_curvatures_dict = dict()
@@ -77,14 +93,11 @@ class BaseGraphBuilder(ABC):
         return """Base class for building graphs from STRING database and 'omics' datasets.
         """
 
-    def execute(self):
+    def execute(self) -> None:
         r"""Main function for executing class"""
 
-        print("Converting gene symbols...")
-        self._convert_gene_symbols()
-
-        print("Constructing NetworkX graph...")
-        self._construct_networkx_graph()
+        print("Converting gene symbols and building graph...")
+        self._build_graph_from_stringdb()
 
         print("Computing edge curvatures...")
         self.compute_edge_curvatures()
@@ -95,9 +108,180 @@ class BaseGraphBuilder(ABC):
 
         if self.make_pytorch_graphs:
             print("Converting to PyTorch Geometric and writing individual graphs...")
-            self._pytorch_preprocess()
-            self._convert_to_pytorch()
-            self._save_edge_curvatures_pytorch_format()
+            self.convert_to_pyg()
+
+    def _build_graph_from_stringdb(self):
+        string_graph = StringDBGraphBuilder(
+            self.string_aliases_file,
+            self.string_edges_file,
+            self.confidence_level,
+            self.omics_data_file,
+            self.output_dir,
+            self.graph_file_name,
+        )
+        self.G = string_graph.G
+        self.nodes = string_graph.nodes
+        self.omics_data = string_graph.omics_data
+        self.edges_df = string_graph.edges_df
+
+    def compute_edge_curvatures(self) -> None:
+        r"""Compute edge curvatures *only*. The full curvature calculation, including nodal curvatures
+        and total curvature, is not necessary here. The edge curvatures are computed so that they can be
+        passed into the RGCN in the message passing layer.
+
+        :return: None
+        """
+        # Instantiate GraphCurvature class with NetworkX graph
+        orc = GraphCurvature(self.G, n_procs=self.n_procs)
+
+        # Compute edge curvatures from NetworkX graph
+        orc.compute_edge_curvatures()
+
+        # Store the edge curvature results on disk and as an instance attribute
+        edge_curvatures = orc.edge_curvatures
+
+        # Quick-and-dirty dictionary-to-dataframe conversion. This works better than the
+        # pandas built-in.
+        edge_curvatures_df = pd.DataFrame(list(edge_curvatures.keys()))
+        edge_curvatures_df['curvature'] = edge_curvatures.values()
+        edge_curvatures_df.rename(columns={0: 'gene_1', 1: 'gene_2'})
+
+        # Save to disk
+        edge_curvatures_df.to_csv(self.curvature_file_name)
+
+        # Set instance attribute to dataframe. It's more convenient than the dictionary.
+        self.edge_curvatures = edge_curvatures_df
+        self.edge_curvatures_dict = edge_curvatures
+        self.orc = orc
+
+    def compute_nodal_curvatures(self) -> None:
+        r"""Finish graph curvature calculation after edge curvatures are computed
+
+        :return:
+        """
+        # If edge_curvatures were not previously computed, compute them.
+        if not self.edge_curvatures.empty:
+            self.compute_edge_curvatures()
+
+        # Compute nodal_curvatures
+        self.orc.compute()
+
+    def compute_curvature_per_sample(self) -> None:
+        r"""Call the built-in function in GraphCurvature to compute
+        nodal curvatures and total curvature per patient.
+
+        :return: None
+        """
+        curvatures_df, nodal_curvatures = self.orc.curvature_per_pat(self.omics_data)
+        self.total_curvature_per_sample = curvatures_df
+        self.nodal_curvatures_per_sample = nodal_curvatures
+
+    def convert_to_pyg(self):
+        # Instantiate pytorch geometric converter
+        pyg_converter = PygConverter(
+            self.G,
+            self.omics_data,
+            self.edge_curvatures,
+            self.edge_curvatures_file_path
+        )
+        pyg_converter.execute()
+        # Get pyg graph
+        self.Gp = pyg_converter.Gp
+        # Get formatted omics data in dataframe
+        self.tpm_df = pyg_converter.tpm_df
+
+    @abstractmethod
+    def _create_patient_graphs(self):
+        """Each dataset is a little different. Use one of the boilerplate classes in
+        'graph_builder.py' to see an example of what should happen in this class.
+        """
+        return
+
+    def _pagerank(self) -> None:
+        r"""Reduce the size of the graph by highlighting the most relevant parts
+
+        :return: None
+        """
+        pr = PageRanker(self.G)
+        self.G = pr.G_cc
+
+
+class GenericDBGraphBuilder(ABC):
+    def __init__(
+            self,
+            string_aliases_file: str,
+            string_edges_file: str,
+            confidence_level: int,
+            omics_data_file: str,
+            output_dir: Path,
+            graph_file_name: Path):
+        self.string_aliases_file = string_aliases_file
+        self.string_aliases: pd.DataFrame = pd.DataFrame([])
+        self.string_edges_file = string_edges_file
+        self.string_edges: pd.DataFrame = pd.DataFrame([])
+        self.confidence_level = confidence_level
+        self.omics_data_file = omics_data_file
+        self.omics_data: pd.DataFrame = pd.DataFrame([])
+        self.output_dir = output_dir
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.graph_file_name = self.output_dir.joinpath(graph_file_name)
+
+    def __str__(self):
+        return r"""Abstract class outlining the structure of a graph builder from a
+        generic Protein-Protein Interaction (PPI) database.
+        
+        Examples: 
+            STRING DB
+            Human Protein Reference Database (HPRD)
+            MetaBase
+        """
+
+    @abstractmethod
+    def _convert_gene_symbols(self):
+        r"""Convert the default symbols to the type that matches the input omics data
+
+        """
+        return
+
+    @abstractmethod
+    def _construct_networkx_graph(self):
+        r"""Build a NetworkX graph from the nodes and edges defined by the PPI database
+
+        """
+        return
+
+
+class StringDBGraphBuilder(GenericDBGraphBuilder):
+    def __init__(
+            self,
+            string_aliases_file: str,
+            string_edges_file: str,
+            confidence_level: int,
+            omics_data_file: str,
+            output_dir: Path,
+            graph_file_name: Path):
+
+        super().__init__(string_aliases_file,
+                         string_edges_file,
+                         confidence_level,
+                         omics_data_file,
+                         output_dir,
+                         graph_file_name)
+
+        self.string_aliases_file = string_aliases_file
+        self.string_aliases: pd.DataFrame = pd.DataFrame([])
+        self.string_edges_file = string_edges_file
+        self.string_edges: pd.DataFrame = pd.DataFrame([])
+        self.confidence_level = confidence_level
+        self.omics_data_file = omics_data_file
+        self.omics_data: pd.DataFrame = pd.DataFrame([])
+        self.output_dir = output_dir
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.graph_file_name = self.output_dir.joinpath(graph_file_name)
+
+    def __str__(self) -> str:
+        return r"""Build a NetworkX graph from the STRING database
+        """
 
     def _convert_gene_symbols(self) -> None:
         r"""STRING database reports protein-protein interactions (PPIs) using their own ID's.
@@ -189,60 +373,32 @@ class BaseGraphBuilder(ABC):
         # Save graph as pickle
         nx.write_gpickle(self.G, self.graph_file_name)
 
-    def compute_edge_curvatures(self) -> None:
-        r"""Compute edge curvatures *only*. The full curvature calculation, including nodal curvatures
-        and total curvature, is not necessary here. The edge curvatures are computed so that they can be
-        passed into the RGCN in the message passing layer.
+
+class PygConverter(ABC):
+    def __init__(
+            self,
+            G: nx.Graph,
+            omics_data: pd.DataFrame,
+            edge_curvatures: pd.DataFrame,
+            edge_curvatures_file_path: Path,
+    ):
+        self.G = G
+        self.omics_data = omics_data
+        self.edge_curvatures = edge_curvatures
+        self.edge_curvatures_file_path = edge_curvatures_file_path
+
+    def __str__(self):
+        return r"""Convert a NetworkX graph to a PyTorch Geometric graph and store the 
+        associated curvature values in a dataframe with a matching index.
+        """
+
+    def execute(self) -> None:
+        r"""Main function for converting STRING DB NetworkX graph to PyTorch Geometric graph
 
         :return: None
         """
-        # Instantiate GraphCurvature class with NetworkX graph
-        orc = GraphCurvature(self.G, n_procs=self.n_procs)
-
-        # Compute edge curvatures from NetworkX graph
-        orc.compute_edge_curvatures()
-
-        # Store the edge curvature results on disk and as an instance attribute
-        edge_curvatures = orc.edge_curvatures
-
-        # Quick-and-dirty dictionary-to-dataframe conversion. This works better than the
-        # pandas built-in.
-        edge_curvatures_df = pd.DataFrame(list(edge_curvatures.keys()))
-        edge_curvatures_df['curvature'] = edge_curvatures.values()
-        edge_curvatures_df.rename(columns={0: 'gene_1', 1: 'gene_2'})
-
-        # Save to disk
-        edge_curvatures_df.to_csv(self.curvature_file_name)
-
-        # Set instance attribute to dataframe. It's more convenient than the dictionary.
-        self.edge_curvatures = edge_curvatures_df
-        self.edge_curvatures_dict = edge_curvatures
-        self.orc = orc
-
-    def compute_nodal_curvatures(self) -> None:
-        r"""Finish graph curvature calculation after edge curvatures are computed
-
-        :return:
-        """
-        # If edge_curvatures were not previously computed, compute them.
-        if not self.edge_curvatures.empty:
-            self.compute_edge_curvatures()
-
-        # Compute nodal_curvatures
-        self.orc.compute()
-
-    def compute_curvature_per_sample(self) -> None:
-        r"""Call the built-in function in GraphCurvature to compute
-        nodal curvatures and total curvature per patient.
-
-        :return: None
-        """
-        curvatures_df, nodal_curvatures = self.orc.curvature_per_pat(self.omics_data)
-        self.total_curvature_per_sample = curvatures_df
-        self.nodal_curvatures_per_sample = nodal_curvatures
-
-    def _pagerank(self):
-        pass
+        self._pytorch_preprocess()
+        self._save_edge_curvatures_pytorch_format()
 
     def _pytorch_preprocess(self) -> None:
         r"""Preprocessing step. Goal is to convert from a base NetworkX graph to a set of
@@ -292,13 +448,6 @@ class BaseGraphBuilder(ABC):
         edge_curvatures.sort_values(by=['ind1', 'ind2'])[['ind1', 'ind2', 'curvature']].to_csv(
             self.edge_curvatures_file_path, index=False, header=False)
 
-    @abstractmethod
-    def _convert_to_pytorch(self):
-        """Each dataset is a little different. Use one of the boilerplate classes in
-        'graph_builder.py' to see an example of what should happen in this class.
-        """
-        return
-
 
 class PageRanker(object):
     def __init__(
@@ -323,21 +472,39 @@ class PageRanker(object):
         """
 
     def execute(self) -> None:
+        r"""Main function for executing page ranker algorithm and returning a
+        connected subgraph
+
+        :return: None
+        """
         self._read_markers()
         self._create_personalization()
         self._compute_pagerank()
         self._extract_largest_subgraph()
 
-    def _read_markers(self):
+    def _read_markers(self) -> None:
+        r"""Read file containing gene names. Should be two columns: index, gene
+
+        :return: None
+        """
         self.markers = pd.read_csv(self.marker_path, index_col=0)
 
-    def _create_personalization(self):
+    def _create_personalization(self) -> None:
+        r"""Create dictionary containing genes mapped to personalization values. Genes
+        read in from "read_markers" are assigned a 1, and everything else is assigned 0.
+
+        :return: None
+        """
         genes = pd.DataFrame(list(self.G.nodes), columns=['gene'])
         gene_list = self.markers['gene'].tolist()
         genes['personalization'] = genes['gene'].apply(lambda x: 1 if x in gene_list else 0)
         self.personalization = dict(zip(genes['gene'], genes['personalization']))
 
     def _compute_pagerank(self):
+        r"""Execute the page rank algorithm using NetworkX.
+
+        :return: None
+        """
         scores = nx.pagerank(self.G, personalization=self.personalization, max_iter=self.max_iter, tol=1e-06)
         scores_df = pd.DataFrame([scores.keys(), scores.values()], index=['gene', 'score']).T
         top_scores_df = scores_df.sort_values(by='score', ascending=False)[:self.n_nodes]
@@ -345,6 +512,10 @@ class PageRanker(object):
         self.G_top = G_top
 
     def _extract_largest_subgraph(self):
+        r"""Extract the largest connected subgraph using NetworkX.
+
+        :return: None
+        """
         G_cc = [self.G_top.subgraph(c).copy() for c in nx.connected_components(self.G_top) if
                 c == max(nx.connected_components(self.G_top), key=len)][0]
         self.G_cc = G_cc
