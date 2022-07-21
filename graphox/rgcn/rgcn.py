@@ -16,60 +16,52 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 """
 
-from datetime import datetime
+import os
 import random
+from pathlib import Path
 
+import click
 import torch
-from graphox.dataloader.immotion_dataset import ImMotionDataset
-from graphox.rgcn.src import CurvatureGraph, CurvatureValues, CurvatureGraphNN
 from torch_geometric.loader import DataLoader
-from torch.utils.data.dataloader import default_collate
 
-from typing import Any
-
-
-criterion = torch.nn.CrossEntropyLoss()
+from graphox.dataloader.immotion_dataset import ImMotionDataset
+from graphox.rgcn.src import CurvatureGraph, CurvatureValues
 
 
-def train(dataset: DataLoader,
-          model: CurvatureGraphNN,
-          optimizer: Any,
-          device) -> tuple:
-    model.train()
-    for data in dataset:
-        out = model(data)
-        y = data.y
-        loss = torch.nn.functional.nll_loss(out.cpu(), y.cpu().long())
-        loss.backward()
-        optimizer.step()
-        optimizer.zero_grad()
-    return model, optimizer, loss
+def train_rgcn(config):
+    graph_dir = config['data_dir'].joinpath('pt_graphs')
+    edge_curvatures_file_path = config['data_dir'].joinpath('pt_edge_curvatures.csv')
 
+    data_raw = ImMotionDataset(graph_dir)
+    curvature_values = CurvatureValues(data_raw[0].num_nodes,
+                                       ricci_filename=edge_curvatures_file_path).w_mul
 
-def test(dataset: DataLoader,
-         model: CurvatureGraphNN) -> float:
-    # Building out metrics with ignite. Work in progress.
-    correct = 0
-    for data in dataset:  # Iterate in batches over the training/test dataset.
-        out = model(data)
-        pred = out.max(1)[1]
-        correct += int((pred == data.y).sum())  # Check against ground-truth labels.
-    return correct / len(dataset.dataset)  # Derive ratio of correct predictions.
+    # Instantiate CurvatureGraph object with graph topology and edge curvatures
+    sample_graph = data_raw[0]
+    curvature_graph_obj = CurvatureGraph(sample_graph, curvature_values,
+                                         d_hidden=config['d_hidden'], p=config['p'])
+    net = curvature_graph_obj.call()
 
+    device = "cpu"
+    if torch.cuda.is_available():
+        device = "cuda:0"
+        if torch.cuda.device_count() > 1:
+            net = torch.nn.DataParallel(net)
 
-def rgcn_trainer(data_path: str,
-                 num_trials: int,
-                 config: dict,
-                 ricci_filename: str) -> None:
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    # Construct RGCN model
+    net.to(device)
 
-    # Slurp up pyg graphs into pyg Dataset
-    data_raw = ImMotionDataset(data_path)
+    criterion = torch.nn.CrossEntropyLoss()
+    optimizer = torch.optim.SGD(
+        net.parameters(),
+        lr=config["lr"],
+        weight_decay=config['weight_decay'],
+        momentum=config['momentum'])
 
     number_patients = data_raw.len()
     patient_indices = list(range(number_patients))
 
-    train_fraction = 0.9
+    train_fraction = 0.8
     number_train_points = int(number_patients * train_fraction)
 
     train_indices = random.sample(patient_indices, number_train_points)
@@ -80,48 +72,70 @@ def rgcn_trainer(data_path: str,
     test_dataset = data_raw[test_indices]
 
     # Convert test/train sets to Data Loaders
-    train_data = DataLoader(train_dataset, batch_size=1, shuffle=True)
-    test_data = DataLoader(test_dataset, batch_size=1, shuffle=False)
+    trainloader = DataLoader(train_dataset, batch_size=1, shuffle=True)
+    valloader = DataLoader(test_dataset, batch_size=1, shuffle=False)
 
-    # Structure edge curvatures in CurvatureValues instance
-    curvature_values = CurvatureValues(data_raw[0].num_nodes, ricci_filename=ricci_filename).w_mul
+    for epoch in range(config['epochs']):  # loop over the dataset multiple times
 
-    # Train 'num_trials' models
-    print('Trial, Epoch, Train acc, Test acc, Time')
-    for i in range(num_trials):
+        for i, data in enumerate(trainloader):
+            inputs, labels = data.x, data.y
+            inputs, labels = inputs.to(device), labels.to(device)
 
-        # Instantiate CurvatureGraph object with graph topology and edge curvatures
-        sample_graph = data_raw[0]
-        curvature_graph_obj = CurvatureGraph(sample_graph, curvature_values, device=device)
+            # zero the parameter gradients
+            optimizer.zero_grad()
 
-        # Construct RGCN model
-        model = curvature_graph_obj.call()
+            # forward + backward + optimize
+            outputs = net(data)
+            loss = criterion(outputs.cpu(), labels.cpu().long())
+            loss.backward()
+            optimizer.step()
 
-        # Initialize optimizer and loss function
-        optimizer = torch.optim.Adam(model.parameters(),
-                                     lr=config['learning_rate'],
-                                     weight_decay=config['weight_decay'],
-                                     )
+        # Validation loss
+        val_loss = 0.0
+        val_steps = 0
+        total = 0
+        correct = 0
+        for i, data in enumerate(valloader, 0):
+            with torch.no_grad():
+                inputs, labels = data.x, data.y
+                inputs, labels = inputs.to(device), labels.to(device)
 
-        # Train model and compute metrics
-        for epoch in range(1000):
-            t_initial = datetime.now()
-            model, optimizer, loss = train(train_data, model, optimizer, device)
-            train_acc = test(train_data, model)
-            test_acc = test(test_data, model)
-            t_final = datetime.now()
-            print(i, epoch, train_acc, test_acc, t_final - t_initial)
+                outputs = net(data)
+                _, predicted = torch.max(outputs.data, 1)
+                total += labels.size(0)
+                correct += (predicted == labels).sum().item()
+
+                loss = criterion(outputs.cpu(), labels.cpu().long())
+                val_loss += loss.cpu().numpy()
+                val_steps += 1
+
+        print("loss=", val_loss / val_steps, "accuracy=", correct / total)
+    print("Finished Training")
+
+
+@click.command()
+@click.option('--path', default=os.getcwd(), help="Path to graphox directory. Default is cwd.")
+@click.option('--epochs', default=100, help="Number of epochs")
+@click.option('--lr', default=0.05, help="Learning rate for optimizer")
+@click.option('--weight_decay', default=0.025, help="Weight decay for optimizer")
+@click.option('--momentum', default=0.1, help="Momentum for optimizer")
+@click.option('--d_hidden', default=32, help="Dimension for hidden layers")
+@click.option('--p', default=0.6, help="Dropout rate in hidden layers")
+def main(path, epochs, lr, weight_decay, momentum, d_hidden, p):
+    graphox_path = Path(path)
+    data_path = graphox_path.joinpath('graphox/output')
+    config = {
+        "epochs": epochs,
+        "lr": lr,
+        "weight_decay": weight_decay,
+        "momentum": momentum,
+        "d_hidden": d_hidden,
+        "p": p,
+        "data_dir": data_path
+    }
+
+    train_rgcn(config)
 
 
 if __name__ == '__main__':
-    import sys
-    import os
-
-    number_of_trials = 2
-    graphs_path = sys.argv[1]
-    ricci_path = sys.argv[2]
-
-    if not os.path.exists(graphs_path):
-        print('invalid path')
-
-    rgcn_trainer(graphs_path, number_of_trials, ricci_path)
+    main()

@@ -70,8 +70,6 @@ def train_rgcn(config, checkpoint_dir=None):
     valloader = DataLoader(test_dataset, batch_size=1, shuffle=False)
 
     for epoch in range(100):  # loop over the dataset multiple times
-        running_loss = 0.0
-        epoch_steps = 0
 
         for i, data in enumerate(trainloader):
             inputs, labels = data.x, data.y
@@ -85,10 +83,6 @@ def train_rgcn(config, checkpoint_dir=None):
             loss = criterion(outputs.cpu(), labels.cpu().long())
             loss.backward()
             optimizer.step()
-
-            # print statistics
-            running_loss += loss.item()
-            epoch_steps += 1
 
         # Validation loss
         val_loss = 0.0
