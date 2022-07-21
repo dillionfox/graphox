@@ -19,11 +19,13 @@ def train_rgcn(config, checkpoint_dir=None):
     edge_curvatures_file_path = '/home/dfox/code/graphox/output/pt_edge_curvatures.csv'
 
     data_raw = ImMotionDataset(data_dir)
-    curvature_values = CurvatureValues(data_raw[0].num_nodes, ricci_filename=edge_curvatures_file_path).w_mul
+    curvature_values = CurvatureValues(data_raw[0].num_nodes,
+                                       ricci_filename=edge_curvatures_file_path).w_mul
 
     # Instantiate CurvatureGraph object with graph topology and edge curvatures
     sample_graph = data_raw[0]
-    curvature_graph_obj = CurvatureGraph(sample_graph, curvature_values)
+    curvature_graph_obj = CurvatureGraph(sample_graph, curvature_values,
+                                         d_hidden=config['d_hidden'], p=config['p'])
     net = curvature_graph_obj.call()
 
     device = "cpu"
@@ -37,10 +39,10 @@ def train_rgcn(config, checkpoint_dir=None):
 
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(
-            net.parameters(), 
-            lr=config["lr"], 
-            weight_decay=config['weight_decay'],
-            momentum=config['momentum'])
+        net.parameters(),
+        lr=config["lr"],
+        weight_decay=config['weight_decay'],
+        momentum=config['momentum'])
 
     # The `checkpoint_dir` parameter gets passed by Ray Tune when a checkpoint
     # should be restored.
@@ -119,12 +121,13 @@ def train_rgcn(config, checkpoint_dir=None):
     print("Finished Training")
 
 
-def main(num_samples=10, max_num_epochs=10, gpus_per_trial=1):
+def main(num_samples=9600, max_num_epochs=10, gpus_per_trial=1):
     config = {
-        "lr": tune.choice([0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5]),
-        "weight_decay": tune.choice([0, 0.01, 0.05, 0.1]),
-        "momentum": tune.choice([0, 0.1, 0.2, 0.5, 0.7, 0.9]),
-        "batch_size": tune.choice([2, 4, 8, 16])
+        "lr": tune.choice([0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5]),  # 10
+        "weight_decay": tune.choice([0, 0.01, 0.025, 0.05, 0.1, 0.2]),  # 6
+        "momentum": tune.choice([0, 0.1, 0.25, 0.4, 0.5, 0.6, 0.75, 0.9]),  # 8
+        "d_hidden": tune.choice([32, 64, 128]),  # 4
+        "p": tune.choice([0, 0.2, 0.4, 0.6, 0.8])  # 5
     }
     scheduler = ASHAScheduler(
         max_t=max_num_epochs,

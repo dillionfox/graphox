@@ -17,6 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 from abc import ABC
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -43,15 +44,26 @@ class CurvatureValues(object):
 
 
 class CurvatureGraph(object):
-    def __init__(self, G, curvature_values: torch.tensor, num_classes=2, device=None):
+    def __init__(
+            self,
+            G,
+            curvature_values: torch.tensor,
+            num_classes: int = 2,
+            device: Any = None,
+            p: float = 0.5,
+            d_hidden: int = 64,
+    ):
         self.G = G
         self.num_classes = num_classes
         self.curvature_values = curvature_values
         self.device = device
+        self.p = p
+        self.d_hidden = d_hidden
 
     def call(self):
         w_mul = self.compute_convolution_weights(self.G.edge_index, self.curvature_values)
-        model = CurvatureGraphNN(self.G.num_features, self.num_classes, w_mul, d_hidden=64, p=0.5, device=self.device)
+        model = CurvatureGraphNN(self.G.num_features, self.num_classes, w_mul,
+                                 d_hidden=self.d_hidden, p=self.p, device=self.device)
         return model
 
     def compute_convolution_weights(self, edge_index, edge_weight):
