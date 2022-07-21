@@ -69,7 +69,7 @@ def train_rgcn(config, checkpoint_dir=None):
     trainloader = DataLoader(train_dataset, batch_size=1, shuffle=True)
     valloader = DataLoader(test_dataset, batch_size=1, shuffle=False)
 
-    for epoch in range(100):  # loop over the dataset multiple times
+    for epoch in range(config['epochs']):  # loop over the dataset multiple times
 
         for i, data in enumerate(trainloader):
             inputs, labels = data.x, data.y
@@ -115,13 +115,15 @@ def train_rgcn(config, checkpoint_dir=None):
     print("Finished Training")
 
 
-def main(num_samples=9600, max_num_epochs=10, gpus_per_trial=1):
+def main(num_samples=576, max_num_epochs=10, gpus_per_trial=1):
     config = {
-        "lr": tune.choice([0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5]),  # 10
-        "weight_decay": tune.choice([0, 0.01, 0.025, 0.05, 0.1, 0.2]),  # 6
-        "momentum": tune.choice([0, 0.1, 0.25, 0.4, 0.5, 0.6, 0.75, 0.9]),  # 8
-        "d_hidden": tune.choice([32, 64, 128]),  # 4
-        "p": tune.choice([0, 0.2, 0.4, 0.6, 0.8])  # 5
+        "lr": tune.choice([0.001, 0.005, 0.01, 0.05]),  # 4
+        "weight_decay": tune.choice([0.01, 0.05]),  # 2
+        "momentum": tune.choice([0, 0.5]),  # 2
+        "d_hidden": tune.choice([32, 64, 128]),  # 3
+        "p": tune.choice([0.4, 0.8]),  # 2
+        "version": tune.choice(['v0', 'v1', 'v3', 'v4', 'v5', 'v5']),  # 6
+        "epochs": 30,
     }
     scheduler = ASHAScheduler(
         max_t=max_num_epochs,

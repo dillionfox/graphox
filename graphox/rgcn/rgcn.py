@@ -36,7 +36,8 @@ def train_rgcn(config):
     # Instantiate CurvatureGraph object with graph topology and edge curvatures
     sample_graph = data_raw[0]
     curvature_graph_obj = CurvatureGraph(sample_graph, curvature_values,
-                                         d_hidden=config['d_hidden'], p=config['p'])
+                                         d_hidden=config['d_hidden'], p=config['p'],
+                                         version=config['version'])
     net = curvature_graph_obj.call()
 
     device = "cpu"
@@ -116,6 +117,7 @@ def train_rgcn(config):
 @click.option('--momentum', default=0.1, help="Momentum for optimizer")
 @click.option('--d_hidden', default=32, help="Dimension for hidden layers")
 @click.option('--p', default=0.6, help="Dropout rate in hidden layers")
+@click.option('--version', default='v0', help="Determines the neural network architecture. v{0..5}.")
 def main(
         path,
         epochs,
@@ -123,7 +125,9 @@ def main(
         weight_decay,
         momentum,
         d_hidden,
-        p):
+        p,
+        version,
+):
 
     graphox_path = Path(path)
     graphs_path = graphox_path.joinpath('graphox/output/pt_graphs')
@@ -138,6 +142,7 @@ def main(
         "p": p,
         "graphs_path": graphs_path,
         "curvature_file": curvature_path,
+        "version": version,
     }
 
     train_rgcn(config)

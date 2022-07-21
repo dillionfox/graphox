@@ -52,6 +52,7 @@ class CurvatureGraph(object):
             device: Any = None,
             p: float = 0.5,
             d_hidden: int = 64,
+            version: str = 'v0',
     ):
         self.G = G
         self.num_classes = num_classes
@@ -59,11 +60,13 @@ class CurvatureGraph(object):
         self.device = device
         self.p = p
         self.d_hidden = d_hidden
+        self.version = version
 
     def call(self):
         w_mul = self.compute_convolution_weights(self.G.edge_index, self.curvature_values)
         model = CurvatureGraphNN(self.G.num_features, self.num_classes, w_mul,
-                                 d_hidden=self.d_hidden, p=self.p, device=self.device)
+                                 d_hidden=self.d_hidden, p=self.p, device=self.device,
+                                 version=self.version)
         return model
 
     def compute_convolution_weights(self, edge_index, edge_weight):
@@ -74,10 +77,13 @@ class CurvatureGraph(object):
 
 
 class CurvatureGraphNN(torch.nn.Module):
-    def __init__(self, num_features, num_classes, w_mul, d_hidden=64, p=0.0, device=None):
+    def __init__(self, num_features, num_classes, w_mul, d_hidden=64, p=0.0, device=None, version='v0'):
         super(CurvatureGraphNN, self).__init__()
+        self.version = version
         self.conv1 = MessagePassingConvLayer(num_features, d_hidden, w_mul, p=p, device=device)
         self.conv2 = MessagePassingConvLayer(d_hidden, d_hidden, w_mul, p=p, device=device)
+        self.conv3 = MessagePassingConvLayer(d_hidden, d_hidden, w_mul, p=p, device=device)
+        self.conv4 = MessagePassingConvLayer(d_hidden, d_hidden, w_mul, p=p, device=device)
         self.lin = Linear(d_hidden, num_classes, device=device)
 
     def reset_parameters(self):
@@ -85,13 +91,32 @@ class CurvatureGraphNN(torch.nn.Module):
         self.conv2.reset_parameters()
 
     def forward(self, data):
-        # x = torch.nn.functional.dropout(data.x, p=0.6, training=self.training)
 
+        if self.version == 'v0':
+            return self.v0(data)
+        elif self.version == 'v1':
+            return self.v1(data)
+        elif self.version == 'v2':
+            return self.v2(data)
+        elif self.version == 'v3':
+            return self.v3(data)
+        elif self.version == 'v4':
+            return self.v4(data)
+        elif self.version == 'v5':
+            return self.v5(data)
+        else:
+            return self.v0(data)
+
+    def v0(self, data):
+        r"""First version of the model
+
+        :param data:
+        :return:
+        """
         # 1. Obtain node embeddings
         x = self.conv1(data.x, data.edge_index)
         x = x.relu()
         x = self.conv2(x, data.edge_index)
-        # x = x.relu()
 
         # 2. Readout layer
         x = global_mean_pool(x, data.batch)  # [batch_size, d_hidden]
@@ -100,7 +125,129 @@ class CurvatureGraphNN(torch.nn.Module):
         x = torch.nn.functional.dropout(x, p=0.6, training=self.training)
         x = self.lin(x)
         x = torch.nn.functional.log_softmax(x, dim=1)
+        return x
 
+    def v1(self, data):
+        r"""Start with a heavy dropout layer, then execute v0.
+
+        :param data:
+        :return:
+        """
+        x = torch.nn.functional.dropout(data.x, p=0.6, training=self.training)
+
+        # 1. Obtain node embeddings
+        x = self.conv1(x, data.edge_index)
+        x = x.relu()
+        x = self.conv2(x, data.edge_index)
+
+        # 2. Readout layer
+        x = global_mean_pool(x, data.batch)  # [batch_size, d_hidden]
+
+        # 3. Apply a final classifier
+        x = torch.nn.functional.dropout(x, p=0.6, training=self.training)
+        x = self.lin(x)
+        x = torch.nn.functional.log_softmax(x, dim=1)
+        return x
+
+    def v2(self, data):
+        r"""Heavy dropout layer, then 3 convolutional layers.
+
+        :param data:
+        :return:
+        """
+        x = torch.nn.functional.dropout(data.x, p=0.6, training=self.training)
+
+        # 1. Obtain node embeddings
+        x = self.conv1(x, data.edge_index)
+        x = x.relu()
+        x = self.conv2(x, data.edge_index)
+        x = x.relu()
+        x = self.conv3(x, data.edge_index)
+
+        # 2. Readout layer
+        x = global_mean_pool(x, data.batch)  # [batch_size, d_hidden]
+
+        # 3. Apply a final classifier
+        x = torch.nn.functional.dropout(x, p=0.6, training=self.training)
+        x = self.lin(x)
+        x = torch.nn.functional.log_softmax(x, dim=1)
+        return x
+
+    def v3(self, data):
+        r"""Heavy dropout layer, then 4 convolutional layers.
+
+        :param data:
+        :return:
+        """
+        x = torch.nn.functional.dropout(data.x, p=0.6, training=self.training)
+
+        # 1. Obtain node embeddings
+        x = self.conv1(x, data.edge_index)
+        x = x.relu()
+        x = self.conv2(x, data.edge_index)
+        x = x.relu()
+        x = self.conv3(x, data.edge_index)
+        x = x.relu()
+        x = self.conv4(x, data.edge_index)
+
+        # 2. Readout layer
+        x = global_mean_pool(x, data.batch)  # [batch_size, d_hidden]
+
+        # 3. Apply a final classifier
+        x = torch.nn.functional.dropout(x, p=0.6, training=self.training)
+        x = self.lin(x)
+        x = torch.nn.functional.log_softmax(x, dim=1)
+        return x
+
+    def v4(self, data):
+        r"""Heavy dropout layer, then 4 convolutional layers.
+        Extra pooling layer.
+
+        :param data:
+        :return:
+        """
+        x = torch.nn.functional.dropout(data.x, p=0.6, training=self.training)
+
+        # 1. Obtain node embeddings
+        x = self.conv1(x, data.edge_index)
+        x = x.relu()
+        x = self.conv2(x, data.edge_index)
+        x = x.relu()
+
+        x = global_mean_pool(x, data.batch)
+        x = self.conv3(x, data.edge_index)
+        x = x.relu()
+        x = self.conv4(x, data.edge_index)
+        x = x.relu()
+
+        # 2. Readout layer
+        x = global_mean_pool(x, data.batch)
+
+        # 3. Apply a final classifier
+        x = torch.nn.functional.dropout(x, p=0.6, training=self.training)
+        x = self.lin(x)
+        x = torch.nn.functional.log_softmax(x, dim=1)
+        return x
+
+    def v5(self, data):
+        r"""Like v0, but extra relu.
+
+        :param data:
+        :return:
+        """
+        # 1. Obtain node embeddings
+        x = self.conv1(data.x, data.edge_index)
+        x = x.relu()
+        x = self.conv2(x, data.edge_index)
+        x = x.relu()
+
+        # 2. Readout layer
+        x = global_mean_pool(x, data.batch)  # [batch_size, d_hidden]
+
+        # 3. Apply a final classifier
+        x = torch.nn.functional.dropout(x, p=0.6, training=self.training)
+        x = self.lin(x)
+        x = torch.nn.functional.log_softmax(x, dim=1)
         return x
 
 
