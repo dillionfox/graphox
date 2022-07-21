@@ -122,7 +122,7 @@ def main(num_samples=576, max_num_epochs=10, gpus_per_trial=1):
         "momentum": tune.choice([0, 0.5]),  # 2
         "d_hidden": tune.choice([32, 64, 128]),  # 3
         "p": tune.choice([0.4, 0.8]),  # 2
-        "version": tune.choice(['v0', 'v1', 'v3', 'v4', 'v5', 'v5']),  # 6
+        "version": tune.choice(['v0', 'v1', 'v2', 'v3', 'v4', 'v5']),  # 6
         "epochs": 30,
     }
     scheduler = ASHAScheduler(
