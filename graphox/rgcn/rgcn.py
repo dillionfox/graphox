@@ -41,7 +41,7 @@ def train_rgcn(config):
 
     device = "cpu"
     if torch.cuda.is_available():
-        device = "cuda:0"
+        device = "cuda"
         if torch.cuda.device_count() > 1:
             net = torch.nn.DataParallel(net)
 
