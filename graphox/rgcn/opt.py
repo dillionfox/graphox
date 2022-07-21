@@ -76,7 +76,7 @@ def train_rgcn(config, checkpoint_dir=None):
 
             # forward + backward + optimize
             outputs = net(data)
-            loss = criterion(outputs, labels)
+            loss = criterion(outputs.cpu(), labels.cpu().long())
             loss.backward()
             optimizer.step()
 
@@ -99,7 +99,7 @@ def train_rgcn(config, checkpoint_dir=None):
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()
 
-                loss = criterion(outputs, labels)
+                loss = criterion(outputs.cpu(), labels.cpu().long())
                 val_loss += loss.cpu().numpy()
                 val_steps += 1
 
