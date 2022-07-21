@@ -36,7 +36,11 @@ def train_rgcn(config, checkpoint_dir=None):
     net.to(device)
 
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.SGD(net.parameters(), lr=config["lr"], momentum=0.9)
+    optimizer = optim.SGD(
+            net.parameters(), 
+            lr=config["lr"], 
+            weight_decay=config['weight_decay'],
+            momentum=config['momentum'])
 
     # The `checkpoint_dir` parameter gets passed by Ray Tune when a checkpoint
     # should be restored.
@@ -49,7 +53,7 @@ def train_rgcn(config, checkpoint_dir=None):
     number_patients = data_raw.len()
     patient_indices = list(range(number_patients))
 
-    train_fraction = 0.9
+    train_fraction = 0.8
     number_train_points = int(number_patients * train_fraction)
 
     train_indices = random.sample(patient_indices, number_train_points)
@@ -63,7 +67,7 @@ def train_rgcn(config, checkpoint_dir=None):
     trainloader = DataLoader(train_dataset, batch_size=1, shuffle=True)
     valloader = DataLoader(test_dataset, batch_size=1, shuffle=False)
 
-    for epoch in range(10):  # loop over the dataset multiple times
+    for epoch in range(100):  # loop over the dataset multiple times
         running_loss = 0.0
         epoch_steps = 0
 
@@ -115,18 +119,20 @@ def train_rgcn(config, checkpoint_dir=None):
     print("Finished Training")
 
 
-def main(num_samples=2, max_num_epochs=4, gpus_per_trial=1):
+def main(num_samples=10, max_num_epochs=10, gpus_per_trial=1):
     config = {
-        "lr": tune.loguniform(1e-4, 1e-1),
-        "batch_size": tune.choice([2, 4])
+        "lr": tune.choice([0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5]),
+        "weight_decay": tune.choice([0, 0.01, 0.05, 0.1]),
+        "momentum": tune.choice([0, 0.1, 0.2, 0.5, 0.7, 0.9]),
+        "batch_size": tune.choice([2, 4, 8, 16])
     }
     scheduler = ASHAScheduler(
         max_t=max_num_epochs,
-        grace_period=1,
+        grace_period=3,
         reduction_factor=2)
     result = tune.run(
         tune.with_parameters(train_rgcn),
-        resources_per_trial={"cpu": 2, "gpu": gpus_per_trial},
+        resources_per_trial={"cpu": 12, "gpu": gpus_per_trial},
         config=config,
         metric="loss",
         mode="min",
