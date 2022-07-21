@@ -29,12 +29,9 @@ from graphox.rgcn.src import CurvatureGraph, CurvatureValues
 
 
 def train_rgcn(config):
-    graph_dir = config['data_dir'].joinpath('pt_graphs')
-    edge_curvatures_file_path = config['data_dir'].joinpath('pt_edge_curvatures.csv')
-
-    data_raw = ImMotionDataset(graph_dir)
+    data_raw = ImMotionDataset(config['graphs_path'])
     curvature_values = CurvatureValues(data_raw[0].num_nodes,
-                                       ricci_filename=edge_curvatures_file_path).w_mul
+                                       ricci_filename=config['curvature_file']).w_mul
 
     # Instantiate CurvatureGraph object with graph topology and edge curvatures
     sample_graph = data_raw[0]
@@ -121,9 +118,19 @@ def train_rgcn(config):
 @click.option('--momentum', default=0.1, help="Momentum for optimizer")
 @click.option('--d_hidden', default=32, help="Dimension for hidden layers")
 @click.option('--p', default=0.6, help="Dropout rate in hidden layers")
-def main(path, epochs, lr, weight_decay, momentum, d_hidden, p):
+def main(
+        path,
+        epochs,
+        lr,
+        weight_decay,
+        momentum,
+        d_hidden,
+        p):
+
     graphox_path = Path(path)
-    data_path = graphox_path.joinpath('graphox/output')
+    graphs_path = graphox_path.joinpath('graphox/output/pt_graphs')
+    curvature_path = graphox_path.joinpath('graphox/output/pt_edge_curvatures.csv')
+
     config = {
         "epochs": epochs,
         "lr": lr,
@@ -131,7 +138,8 @@ def main(path, epochs, lr, weight_decay, momentum, d_hidden, p):
         "momentum": momentum,
         "d_hidden": d_hidden,
         "p": p,
-        "data_dir": data_path
+        "graphs_path": graphs_path,
+        "curvature_file": curvature_path,
     }
 
     train_rgcn(config)
