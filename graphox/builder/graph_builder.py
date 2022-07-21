@@ -23,10 +23,10 @@ import numpy as np
 import pandas as pd
 import torch
 
-from graphox.builder.base import BaseGraphBuilder
+from graphox.builder.base import CurvatureGraphBuilder
 
 
-class ImMotionGraphBuilder(BaseGraphBuilder):
+class ImMotionCurvatureGraphBuilder(CurvatureGraphBuilder):
     def __init__(
             self,
             omics_data_file: str,
@@ -47,7 +47,7 @@ class ImMotionGraphBuilder(BaseGraphBuilder):
         return r"""Class designed to build a graph for the 'ImMotion' dataset
         """
 
-    def _convert_to_pytorch(self) -> None:
+    def _create_patient_graphs(self) -> None:
         r"""Final step of converting base NetworkX graph to a set of pyg graphs.
         Store patient/sample omics data and response as graph attribute. Save
         graph for each patient/sample.
@@ -78,7 +78,7 @@ class ImMotionGraphBuilder(BaseGraphBuilder):
             torch.save(G_i, self.pt_graphs_path.joinpath('G_{}.pt'.format(col)))
 
 
-class TCatGraphBuilder(BaseGraphBuilder):
+class TCatCurvatureGraphBuilder(CurvatureGraphBuilder):
     def __init__(
             self,
             omics_data_file: str,
@@ -97,7 +97,7 @@ class TCatGraphBuilder(BaseGraphBuilder):
         return r"""Class designed to build a graph for the 'tcat' dataset
         """
 
-    def _convert_to_pytorch(self):
+    def _create_patient_graphs(self):
         r"""Final step of converting base NetworkX graph to a set of pyg graphs.
         Store patient/sample omics data and response as graph attribute. Save
         graph for each patient/sample. Tcat dataset doesn't really have response
@@ -148,11 +148,11 @@ def main(dataset: str, n_procs: int) -> None:
 
     # Instantiate builder class
     if dataset == 'immotion':
-        builder = ImMotionGraphBuilder(omics_data_, omics_anno_, string_aliases_file_, string_edges_file_,
-                                       make_pytorch_graphs=True, n_procs=n_procs)
+        builder = ImMotionCurvatureGraphBuilder(omics_data_, omics_anno_, string_aliases_file_, string_edges_file_,
+                                                make_pytorch_graphs=True, n_procs=n_procs)
     elif dataset == 'tcat':
-        builder = TCatGraphBuilder(omics_data_, omics_anno_, string_aliases_file_, string_edges_file_,
-                                   make_pytorch_graphs=False, n_procs=n_procs)
+        builder = TCatCurvatureGraphBuilder(omics_data_, omics_anno_, string_aliases_file_, string_edges_file_,
+                                            make_pytorch_graphs=False, n_procs=n_procs)
     else:
         raise NotImplementedError()
 

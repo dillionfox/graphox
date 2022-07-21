@@ -20,7 +20,7 @@ from datetime import datetime
 import random
 
 import torch
-from graphox.rgcn.data.immotion.immotion_dataset import ImMotionDataset
+from graphox.dataloader.immotion_dataset import ImMotionDataset
 from graphox.rgcn.src import CurvatureGraph, CurvatureValues, CurvatureGraphNN
 from torch_geometric.loader import DataLoader
 from torch.utils.data.dataloader import default_collate
@@ -39,12 +39,7 @@ def train(dataset: DataLoader,
     for data in dataset:
         out = model(data)
         y = data.y
-        try:
-            loss = torch.nn.functional.nll_loss(out.cpu(), y.cpu().long())
-        except Exception as e:
-            print('Data:', data)
-            print('y:', y)
-            exit()
+        loss = torch.nn.functional.nll_loss(out.cpu(), y.cpu().long())
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
