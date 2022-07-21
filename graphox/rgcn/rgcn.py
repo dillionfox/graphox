@@ -20,7 +20,7 @@ from datetime import datetime
 import random
 
 import torch
-from graphox.rgcn.data.immotion.immotion_dataset import ImMotionDataset
+from graphox.dataloader.immotion_dataset import ImMotionDataset
 from graphox.rgcn.src import CurvatureGraph, CurvatureValues, CurvatureGraphNN
 from torch_geometric.loader import DataLoader
 from torch.utils.data.dataloader import default_collate
