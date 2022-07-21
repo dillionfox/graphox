@@ -224,7 +224,7 @@ class GenericDBGraphBuilder(ABC):
         self.omics_data: pd.DataFrame = pd.DataFrame([])
         self.output_dir = output_dir
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        self.graph_file_name = self.output_dir.joinpath(graph_file_name)
+        self.graph_file_name = graph_file_name
 
     def __str__(self):
         return r"""Abstract class outlining the structure of a graph builder from a
@@ -277,7 +277,7 @@ class StringDBGraphBuilder(GenericDBGraphBuilder):
         self.omics_data: pd.DataFrame = pd.DataFrame([])
         self.output_dir = output_dir
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        self.graph_file_name = self.output_dir.joinpath(graph_file_name)
+        self.graph_file_name = graph_file_name
         self.execute()
 
     def __str__(self) -> str:
