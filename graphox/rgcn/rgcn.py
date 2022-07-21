@@ -106,7 +106,7 @@ def train_rgcn(config):
                 val_loss += loss.cpu().numpy()
                 val_steps += 1
 
-        print("loss=", val_loss / val_steps, "accuracy=", correct / total)
+        print("loss =", val_loss / val_steps, "accuracy =", correct / total)
     print("Finished Training")
 
 
