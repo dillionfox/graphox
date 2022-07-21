@@ -75,7 +75,7 @@ def train_rgcn(config, checkpoint_dir=None):
             optimizer.zero_grad()
 
             # forward + backward + optimize
-            outputs = net(inputs)
+            outputs = net(data)
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
@@ -94,7 +94,7 @@ def train_rgcn(config, checkpoint_dir=None):
                 inputs, labels = data.x, data.y
                 inputs, labels = inputs.to(device), labels.to(device)
 
-                outputs = net(inputs)
+                outputs = net(data)
                 _, predicted = torch.max(outputs.data, 1)
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()
