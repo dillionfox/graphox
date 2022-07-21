@@ -278,10 +278,15 @@ class StringDBGraphBuilder(GenericDBGraphBuilder):
         self.output_dir = output_dir
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.graph_file_name = self.output_dir.joinpath(graph_file_name)
+        self.execute()
 
     def __str__(self) -> str:
         return r"""Build a NetworkX graph from the STRING database
         """
+
+    def execute(self):
+        self._convert_gene_symbols()
+        self._construct_networkx_graph()
 
     def _convert_gene_symbols(self) -> None:
         r"""STRING database reports protein-protein interactions (PPIs) using their own ID's.
