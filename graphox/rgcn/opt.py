@@ -18,12 +18,13 @@ def train_rgcn(config, checkpoint_dir=None):
     data_dir = '/home/dfox/code/graphox/output/pt_graphs'
     edge_curvatures_file_path = '/home/dfox/code/graphox/output/pt_edge_curvatures.csv'
 
-    data_raw = ImMotionDataset(data_dir)
-    curvature_values = CurvatureValues(data_raw[0].num_nodes,
+    train_dataset = ImMotionDataset(data_dir, subset='train')
+    test_dataset = ImMotionDataset(data_dir, subset='test')
+    curvature_values = CurvatureValues(train_dataset[0].num_nodes,
                                        ricci_filename=edge_curvatures_file_path).w_mul
 
     # Instantiate CurvatureGraph object with graph topology and edge curvatures
-    sample_graph = data_raw[0]
+    sample_graph = train_dataset[0]
     curvature_graph_obj = CurvatureGraph(sample_graph, curvature_values,
                                          d_hidden=config['d_hidden'], p=config['p'])
     net = curvature_graph_obj.call()
@@ -51,19 +52,6 @@ def train_rgcn(config, checkpoint_dir=None):
         model_state, optimizer_state = torch.load(checkpoint)
         net.load_state_dict(model_state)
         optimizer.load_state_dict(optimizer_state)
-
-    number_patients = data_raw.len()
-    patient_indices = list(range(number_patients))
-
-    train_fraction = 0.8
-    number_train_points = int(number_patients * train_fraction)
-
-    train_indices = random.sample(patient_indices, number_train_points)
-    test_indices = list(set(patient_indices) - set(train_indices))
-
-    # Split into test/train
-    train_dataset = data_raw[train_indices]
-    test_dataset = data_raw[test_indices]
 
     # Convert test/train sets to Data Loaders
     trainloader = DataLoader(train_dataset, batch_size=1, shuffle=True)

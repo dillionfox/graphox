@@ -17,28 +17,76 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 import os
-import pathlib
+from pathlib import Path
 from abc import ABC
 
 import torch
 from torch_geometric.data import Dataset, InMemoryDataset
+from sklearn.model_selection import train_test_split
+import pandas as pd
 
 
 class ImMotionDataset(Dataset, ABC):
-    def __init__(self, root, transform=None, pre_transform=None, pre_filter=None):
+    def __init__(
+            self,
+            root,
+            transform=None,
+            pre_transform=None,
+            pre_filter=None,
+            subset: str = 'all',
+            test_size: float = 0.2,
+            override_split: bool = False
+    ):
         super().__init__(root, transform, pre_transform, pre_filter)
+        self.subset = subset.lower()
+        if self.subset not in ['test', 'train', 'all']:
+            self.subset = 'all'
+        self.test_size = test_size
+        self.override_split = override_split
+        self.train_files = Path(self.root).joinpath('train_files.csv')
+        self.test_files = Path(self.root).joinpath('test_files.csv')
 
     @property
     def raw_file_names(self):
-        return list(pathlib.Path(self.root).glob('G_EA*.pt'))
+        if self.subset in ['test', 'train']:
+            # If train/test split is not already done, or if old split is to be overridden
+            if (not self.train_files.exists() or not self.test_files.exists()) or self.override_split:
+                files = list(Path(self.root).glob('G_EA*.pt'))
+                y = [torch.load(f).y.numpy()[0] for f in files]
+                X_train, X_test, y_train, y_test = train_test_split(files, y, stratify=y, test_size=self.test_size)
+                pd.DataFrame(X_train, columns=['filename']).to_csv(self.train_files, columns=['filename'], index=False)
+                pd.DataFrame(X_test, columns=['filename']).to_csv(self.test_files, columns=['filename'], index=False)
+            if self.subset == 'train':
+                train_files = pd.read_csv(self.train_files)['filename'].tolist()
+                return [_ for _ in Path(self.root).glob('G_EA*.pt') if _ in train_files]
+            elif self.subset == 'test':
+                test_files = pd.read_csv(self.test_files)['filename'].tolist()
+                return [_ for _ in Path(self.root).glob('G_EA*.pt') if _ in test_files]
+        else:
+            return list(Path(self.root).glob('G_EA*.pt'))
 
     @property
     def processed_file_names(self):
-        return list(pathlib.Path(self.root).glob('G_EA*.pt'))
+        if self.subset in ['test', 'train']:
+            # If train/test split is not already done, or if old split is to be overridden
+            if (not self.train_files.exists() or not self.test_files.exists()) or self.override_split:
+                files = list(Path(self.root).glob('G_EA*.pt'))
+                y = [torch.load(f).y.numpy()[0] for f in files]
+                X_train, X_test, y_train, y_test = train_test_split(files, y, stratify=y, test_size=self.test_size)
+                pd.DataFrame(X_train, columns=['filename']).to_csv(self.train_files, columns=['filename'], index=False)
+                pd.DataFrame(X_test, columns=['filename']).to_csv(self.test_files, columns=['filename'], index=False)
+            if self.subset == 'train':
+                train_files = pd.read_csv(self.train_files)['filename'].tolist()
+                return [_ for _ in Path(self.root).glob('G_EA*.pt') if _ in train_files]
+            elif self.subset == 'test':
+                test_files = pd.read_csv(self.test_files)['filename'].tolist()
+                return [_ for _ in Path(self.root).glob('G_EA*.pt') if _ in test_files]
+        else:
+            return list(Path(self.root).glob('G_EA*.pt'))
 
     def process(self):
         idx = 0
-        for raw_path in pathlib.Path(self.root).glob('G_EA*.pt'):
+        for raw_path in Path(self.root).glob('G_EA*.pt'):
             # Read data from `raw_path`.
             data = torch.load(raw_path)
             data.to(device='cuda' if torch.cuda.is_available() else 'cpu')
@@ -92,9 +140,9 @@ class ImMotionDatasetInMemory(InMemoryDataset, ABC):
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         if device == 'cuda':
             data_list = [torch.load(filepath.absolute(), map_location=lambda storage, loc: storage.cuda(0)) for filepath
-                         in pathlib.Path(self.root).glob('*.pt')]
+                         in Path(self.root).glob('*.pt')]
         else:
-            data_list = [torch.load(filepath.absolute()) for filepath in pathlib.Path(self.root).glob('*.pt')]
+            data_list = [torch.load(filepath.absolute()) for filepath in Path(self.root).glob('*.pt')]
 
         if self.pre_filter is not None:
             data_list = [data for data in data_list if self.pre_filter(data)]
