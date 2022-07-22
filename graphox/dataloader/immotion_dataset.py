@@ -37,7 +37,6 @@ class ImMotionDataset(Dataset, ABC):
             test_size: float = 0.2,
             override_split: bool = False
     ):
-        super().__init__(root, transform, pre_transform, pre_filter)
         self.subset = subset.lower()
         if self.subset not in ['test', 'train', 'all']:
             self.subset = 'all'
@@ -45,6 +44,7 @@ class ImMotionDataset(Dataset, ABC):
         self.override_split = override_split
         self.train_files = Path(self.root).joinpath('train_files.csv')
         self.test_files = Path(self.root).joinpath('test_files.csv')
+        super().__init__(root, transform, pre_transform, pre_filter)
 
     @property
     def raw_file_names(self):
