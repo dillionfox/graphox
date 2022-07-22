@@ -42,8 +42,8 @@ class ImMotionDataset(Dataset, ABC):
             self.subset = 'all'
         self.test_size = test_size
         self.override_split = override_split
-        self.train_files = Path(self.root).joinpath('train_files.csv')
-        self.test_files = Path(self.root).joinpath('test_files.csv')
+        self.train_files = Path(root).joinpath('train_files.csv')
+        self.test_files = Path(root).joinpath('test_files.csv')
         super().__init__(root, transform, pre_transform, pre_filter)
 
     @property
