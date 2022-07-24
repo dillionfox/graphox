@@ -69,10 +69,10 @@ class ImMotionDataset(Dataset, ABC):
     def _set_file_list(self):
         if self.subset == 'train':
             train_files = pd.read_csv(self.train_files)['filename'].tolist()
-            self.file_list = [_ for _ in Path(self.root).glob('G_EA*.pt') if _ in train_files]
+            self.file_list = [_ for _ in Path(self.root).glob('G_EA*.pt') if str(_) in train_files]
         elif self.subset == 'test':
             test_files = pd.read_csv(self.test_files)['filename'].tolist()
-            self.file_list = [_ for _ in Path(self.root).glob('G_EA*.pt') if _ in test_files]
+            self.file_list = [_ for _ in Path(self.root).glob('G_EA*.pt') if str(_) in test_files]
         else:
             self.file_list = list(Path(self.root).glob('G_EA*.pt'))
 
