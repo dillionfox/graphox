@@ -33,9 +33,11 @@ class ImMotionDataset(Dataset, ABC):
             transform=None,
             pre_transform=None,
             pre_filter=None,
+            subset='all',
             test_size: float = 0.2,
             override_split: bool = False
     ):
+        self.subset = subset
         self.test_size = test_size
         self.override_split = override_split
         self.train_files = Path(root).joinpath('train_files.csv')
@@ -60,17 +62,17 @@ class ImMotionDataset(Dataset, ABC):
             pd.DataFrame(X_test, columns=['filename']).to_csv(self.test_files, columns=['filename'], index=False)
 
     def _set_file_list(self):
-        if self.pre_filter == 'train':
+        if self.subset == 'train':
             train_files = pd.read_csv(self.train_files)['filename'].tolist()
             self.file_list = [_ for _ in Path(self.root).glob('G_EA*.pt') if _ in train_files]
-        elif self.pre_filter == 'test':
+        elif self.subset == 'test':
             test_files = pd.read_csv(self.test_files)['filename'].tolist()
             self.file_list = [_ for _ in Path(self.root).glob('G_EA*.pt') if _ in test_files]
         else:
             self.file_list = list(Path(self.root).glob('G_EA*.pt'))
 
     def process(self):
-        if self.pre_filter in ['train', 'test']:
+        if self.subset in ['train', 'test']:
             self._check_test_train_files()
         self._set_file_list()
         idx = 0
