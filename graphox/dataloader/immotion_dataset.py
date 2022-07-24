@@ -33,13 +33,9 @@ class ImMotionDataset(Dataset, ABC):
             transform=None,
             pre_transform=None,
             pre_filter=None,
-            subset: str = 'all',
             test_size: float = 0.2,
             override_split: bool = False
     ):
-        self.subset = subset.lower()
-        if self.subset not in ['test', 'train', 'all']:
-            self.subset = 'all'
         self.test_size = test_size
         self.override_split = override_split
         self.train_files = Path(root).joinpath('train_files.csv')
@@ -48,55 +44,40 @@ class ImMotionDataset(Dataset, ABC):
 
     @property
     def raw_file_names(self):
-        if self.subset in ['test', 'train']:
-            # If train/test split is not already done, or if old split is to be overridden
-            if (not self.train_files.exists() or not self.test_files.exists()) or self.override_split:
-                files = list(Path(self.root).glob('G_EA*.pt'))
-                y = [torch.load(f).y.numpy()[0] for f in files]
-                X_train, X_test, y_train, y_test = train_test_split(files, y, stratify=y, test_size=self.test_size)
-                pd.DataFrame(X_train, columns=['filename']).to_csv(self.train_files, columns=['filename'], index=False)
-                pd.DataFrame(X_test, columns=['filename']).to_csv(self.test_files, columns=['filename'], index=False)
-            if self.subset == 'train':
-                train_files = pd.read_csv(self.train_files)['filename'].tolist()
-                return [_ for _ in Path(self.root).glob('G_EA*.pt') if _ in train_files]
-            elif self.subset == 'test':
-                test_files = pd.read_csv(self.test_files)['filename'].tolist()
-                return [_ for _ in Path(self.root).glob('G_EA*.pt') if _ in test_files]
-        else:
-            return list(Path(self.root).glob('G_EA*.pt'))
+        return self.file_list
 
     @property
     def processed_file_names(self):
-        if self.subset in ['test', 'train']:
-            # If train/test split is not already done, or if old split is to be overridden
-            if (not self.train_files.exists() or not self.test_files.exists()) or self.override_split:
-                files = list(Path(self.root).glob('G_EA*.pt'))
-                y = [torch.load(f).y.numpy()[0] for f in files]
-                X_train, X_test, y_train, y_test = train_test_split(files, y, stratify=y, test_size=self.test_size)
-                pd.DataFrame(X_train, columns=['filename']).to_csv(self.train_files, columns=['filename'], index=False)
-                pd.DataFrame(X_test, columns=['filename']).to_csv(self.test_files, columns=['filename'], index=False)
-            if self.subset == 'train':
-                train_files = pd.read_csv(self.train_files)['filename'].tolist()
-                return [_ for _ in Path(self.root).glob('G_EA*.pt') if _ in train_files]
-            elif self.subset == 'test':
-                test_files = pd.read_csv(self.test_files)['filename'].tolist()
-                return [_ for _ in Path(self.root).glob('G_EA*.pt') if _ in test_files]
+        return self.file_list
+
+    def _check_test_train_files(self):
+        # Check to see if the test/train files need to be made or remade
+        if (not self.train_files.exists() or not self.test_files.exists()) or self.override_split:
+            files = list(Path(self.root).glob('G_EA*.pt'))
+            y = [torch.load(f).y.numpy()[0] for f in files]
+            X_train, X_test, y_train, y_test = train_test_split(files, y, stratify=y, test_size=self.test_size)
+            pd.DataFrame(X_train, columns=['filename']).to_csv(self.train_files, columns=['filename'], index=False)
+            pd.DataFrame(X_test, columns=['filename']).to_csv(self.test_files, columns=['filename'], index=False)
+
+    def _set_file_list(self):
+        if self.pre_filter == 'train':
+            train_files = pd.read_csv(self.train_files)['filename'].tolist()
+            self.file_list = [_ for _ in Path(self.root).glob('G_EA*.pt') if _ in train_files]
+        elif self.pre_filter == 'test':
+            test_files = pd.read_csv(self.test_files)['filename'].tolist()
+            self.file_list = [_ for _ in Path(self.root).glob('G_EA*.pt') if _ in test_files]
         else:
-            return list(Path(self.root).glob('G_EA*.pt'))
+            self.file_list = list(Path(self.root).glob('G_EA*.pt'))
 
     def process(self):
+        if self.pre_filter in ['train', 'test']:
+            self._check_test_train_files()
+        self._set_file_list()
         idx = 0
-        for raw_path in Path(self.root).glob('G_EA*.pt'):
+        for raw_path in self.file_list:
             # Read data from `raw_path`.
             data = torch.load(raw_path)
             data.to(device='cuda' if torch.cuda.is_available() else 'cpu')
-
-            if self.pre_filter is not None and not self.pre_filter(data):
-                continue
-
-            if self.pre_transform is not None:
-                data = self.pre_transform(data)
-
             torch.save(data, os.path.join(self.processed_dir, f'data_{idx}.pt'))
             idx += 1
 
