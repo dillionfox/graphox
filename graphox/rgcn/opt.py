@@ -25,8 +25,11 @@ def train_rgcn(config, checkpoint_dir=None):
 
     # Instantiate CurvatureGraph object with graph topology and edge curvatures
     sample_graph = train_dataset[0]
-    curvature_graph_obj = CurvatureGraph(sample_graph, curvature_values,
-                                         d_hidden=config['d_hidden'], p=config['p'])
+    curvature_graph_obj = CurvatureGraph(sample_graph,
+                                         curvature_values,
+                                         d_hidden=config['d_hidden'],
+                                         p=config['p'],
+                                         version=config['version'])
     net = curvature_graph_obj.call()
 
     device = "cpu"
