@@ -83,6 +83,7 @@ def _compute_curvature(dataset: str, conf: int, n_procs: int):
 @click.option('--momentum', default=0.1, help="Momentum for optimizer")
 @click.option('--d_hidden', default=32, help="Dimension for hidden layers")
 @click.option('--p', default=0.6, help="Dropout rate in hidden layers")
+@click.option('--version', default='v0', help="Version of neural network architecture")
 def main(
         dataset: str,
         n_procs: int,
@@ -94,7 +95,8 @@ def main(
         weight_decay,
         momentum,
         d_hidden,
-        p
+        p,
+        version,
 ):
     # Make sure predefined project is chosen
     if dataset not in ['immotion', 'tcat']:
@@ -112,6 +114,7 @@ def main(
             "momentum": momentum,
             "d_hidden": d_hidden,
             "p": p,
+            "version": version
         }
         _run_rgcn(dataset, conf, n_procs, config)
 
