@@ -67,6 +67,8 @@ class ImMotionDataset(Dataset, ABC):
             pd.DataFrame(X_test, columns=['filename']).to_csv(self.test_files, columns=['filename'], index=False)
 
     def _set_file_list(self):
+        if self.subset in ['train', 'test']:
+            self._check_test_train_files()
         if self.subset == 'train':
             train_files = pd.read_csv(self.train_files)['filename'].tolist()
             self.file_list = [_ for _ in Path(self.root).glob('G_EA*.pt') if str(_) in train_files]
