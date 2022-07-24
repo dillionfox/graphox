@@ -29,8 +29,6 @@ def _run_rgcn(dataset: str, conf: int, n_procs: int, config: dict):
     # Instantiate builder object to build graphs
     builder = ImMotionCurvatureGraphBuilder(omics_data_, omics_anno_, string_aliases_file_, string_edges_file_,
                                             confidence_level=conf, make_pytorch_graphs=True, n_procs=n_procs)
-    # Build graphs and write output to disk
-    builder.execute()
 
     # Run RGCN model
     config['graphs_path'] = builder.pt_graphs_path

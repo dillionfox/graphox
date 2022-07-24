@@ -42,6 +42,8 @@ class ImMotionCurvatureGraphBuilder(CurvatureGraphBuilder):
                          confidence_level=confidence_level,
                          make_pytorch_graphs=make_pytorch_graphs,
                          n_procs=n_procs)
+        self.execute()
+        self._create_patient_graphs()
 
     def __str__(self):
         return r"""Class designed to build a graph for the 'ImMotion' dataset
