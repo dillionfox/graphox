@@ -40,16 +40,21 @@ class ImMotionDataset(Dataset, ABC):
         self.subset = subset
         self.test_size = test_size
         self.override_split = override_split
+        self.file_list = None
         self.train_files = Path(root).joinpath('train_files.csv')
         self.test_files = Path(root).joinpath('test_files.csv')
         super().__init__(root, transform, pre_transform, pre_filter)
 
     @property
     def raw_file_names(self):
+        if self.file_list is None:
+            self._set_file_list()
         return self.file_list
 
     @property
     def processed_file_names(self):
+        if self.file_list is None:
+            self._set_file_list()
         return self.file_list
 
     def _check_test_train_files(self):
@@ -74,7 +79,8 @@ class ImMotionDataset(Dataset, ABC):
     def process(self):
         if self.subset in ['train', 'test']:
             self._check_test_train_files()
-        self._set_file_list()
+        if self.file_list is None:
+            self._set_file_list()
         idx = 0
         for raw_path in self.file_list:
             # Read data from `raw_path`.
