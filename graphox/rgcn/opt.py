@@ -106,19 +106,19 @@ def train_rgcn(config, checkpoint_dir=None):
     print("Finished Training")
 
 
-def main(num_samples=576, max_num_epochs=10, gpus_per_trial=1):
+def main(num_samples=2916, max_num_epochs=20, gpus_per_trial=1):
     config = {
-        "lr": tune.choice([0.001, 0.005, 0.01, 0.05]),  # 4
-        "weight_decay": tune.choice([0.01, 0.05]),  # 2
-        "momentum": tune.choice([0, 0.5]),  # 2
+        "lr": tune.choice([0.001, 0.005, 0.01, 0.05, 0.1, 0.5]),  # 6
+        "weight_decay": tune.choice([0, 0.01, 0.1]),  # 3
+        "momentum": tune.choice([0, 0.1, 0.5]),  # 3
         "d_hidden": tune.choice([32, 64, 128]),  # 3
-        "p": tune.choice([0.4, 0.8]),  # 2
+        "p": tune.choice([0.2, 0.4, 0.8]),  # 3
         "version": tune.choice(['v0', 'v1', 'v2', 'v3', 'v4', 'v5']),  # 6
         "epochs": 30,
     }
     scheduler = ASHAScheduler(
         max_t=max_num_epochs,
-        grace_period=3,
+        grace_period=4,
         reduction_factor=2)
     result = tune.run(
         tune.with_parameters(train_rgcn),

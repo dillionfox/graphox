@@ -201,7 +201,7 @@ class CurvatureGraphNN(torch.nn.Module):
 
     def v4(self, data):
         r"""Heavy dropout layer, then 4 convolutional layers.
-        Extra pooling layer.
+        Extra relu layer.
 
         :param data:
         :return:
@@ -214,7 +214,6 @@ class CurvatureGraphNN(torch.nn.Module):
         x = self.conv2(x, data.edge_index)
         x = x.relu()
 
-        x = global_mean_pool(x, data.batch)
         x = self.conv3(x, data.edge_index)
         x = x.relu()
         x = self.conv4(x, data.edge_index)
