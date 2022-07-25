@@ -13,8 +13,12 @@ from graphox.rgcn.src import CurvatureGraph, CurvatureValues
 
 
 def train_rgcn(config, checkpoint_dir=None):
-    ##
+    r"""Main function for hyperparameter optimization
 
+    :param config:
+    :param checkpoint_dir:
+    :return:
+    """
     data_dir = '/home/dfox/code/graphox/output/pt_graphs'
     edge_curvatures_file_path = '/home/dfox/code/graphox/output/pt_edge_curvatures.csv'
 
@@ -29,7 +33,8 @@ def train_rgcn(config, checkpoint_dir=None):
                                          curvature_values,
                                          d_hidden=config['d_hidden'],
                                          p=config['p'],
-                                         version=config['version'])
+                                         version=config['version'],
+                                         mp_factor=config['mp_factor'])
     net = curvature_graph_obj.call()
 
     device = "cpu"
