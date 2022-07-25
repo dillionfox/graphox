@@ -53,6 +53,7 @@ class CurvatureGraph(object):
             p: float = 0.5,
             d_hidden: int = 64,
             version: str = 'v0',
+            mp_factor: float = 1,
     ):
         self.G = G
         self.num_classes = num_classes
@@ -61,6 +62,7 @@ class CurvatureGraph(object):
         self.p = p
         self.d_hidden = d_hidden
         self.version = version
+        self.mp_factor = mp_factor
 
     def call(self):
         w_mul = self.compute_convolution_weights(self.G.edge_index, self.curvature_values)
@@ -73,6 +75,7 @@ class CurvatureGraph(object):
         deg_inv_sqrt = scatter_add(edge_weight, edge_index[0], dim=0).pow(-0.5)
         deg_inv_sqrt[deg_inv_sqrt == float('inf')] = 0
         w_mul = deg_inv_sqrt[edge_index[0]] * edge_weight * deg_inv_sqrt[edge_index[1]]
+        w_mul *= self.mp_factor
         return torch.tensor(w_mul.clone().detach(), dtype=torch.float, device=self.device)
 
 
@@ -85,6 +88,7 @@ class CurvatureGraphNN(torch.nn.Module):
         self.conv3 = MessagePassingConvLayer(d_hidden, d_hidden, w_mul, p=p, device=device)
         self.conv4 = MessagePassingConvLayer(d_hidden, d_hidden, w_mul, p=p, device=device)
         self.lin = Linear(d_hidden, num_classes, device=device)
+        self.p_other = 0.2
 
     def reset_parameters(self):
         self.conv1.reset_parameters()
@@ -113,27 +117,7 @@ class CurvatureGraphNN(torch.nn.Module):
         :param data:
         :return:
         """
-        # 1. Obtain node embeddings
-        x = self.conv1(data.x, data.edge_index)
-        x = x.relu()
-        x = self.conv2(x, data.edge_index)
-
-        # 2. Readout layer
-        x = global_mean_pool(x, data.batch)  # [batch_size, d_hidden]
-
-        # 3. Apply a final classifier
-        x = torch.nn.functional.dropout(x, p=0.6, training=self.training)
-        x = self.lin(x)
-        x = torch.nn.functional.log_softmax(x, dim=1)
-        return x
-
-    def v1(self, data):
-        r"""Start with a heavy dropout layer, then execute v0.
-
-        :param data:
-        :return:
-        """
-        x = torch.nn.functional.dropout(data.x, p=0.6, training=self.training)
+        x = torch.nn.functional.dropout(data.x, p=self.p_other, training=self.training)
 
         # 1. Obtain node embeddings
         x = self.conv1(x, data.edge_index)
@@ -144,7 +128,30 @@ class CurvatureGraphNN(torch.nn.Module):
         x = global_mean_pool(x, data.batch)  # [batch_size, d_hidden]
 
         # 3. Apply a final classifier
-        x = torch.nn.functional.dropout(x, p=0.6, training=self.training)
+        x = torch.nn.functional.dropout(x, p=self.p_other, training=self.training)
+        x = self.lin(x)
+        x = torch.nn.functional.log_softmax(x, dim=1)
+        return x
+
+    def v1(self, data):
+        r"""Like v0, but additional relu
+
+        :param data:
+        :return:
+        """
+        x = torch.nn.functional.dropout(data.x, p=self.p_other, training=self.training)
+
+        # 1. Obtain node embeddings
+        x = self.conv1(x, data.edge_index)
+        x = x.relu()
+        x = self.conv2(x, data.edge_index)
+        x = x.relu()
+
+        # 2. Readout layer
+        x = global_mean_pool(x, data.batch)  # [batch_size, d_hidden]
+
+        # 3. Apply a final classifier
+        x = torch.nn.functional.dropout(x, p=self.p_other, training=self.training)
         x = self.lin(x)
         x = torch.nn.functional.log_softmax(x, dim=1)
         return x
@@ -155,7 +162,7 @@ class CurvatureGraphNN(torch.nn.Module):
         :param data:
         :return:
         """
-        x = torch.nn.functional.dropout(data.x, p=0.6, training=self.training)
+        x = torch.nn.functional.dropout(data.x, p=self.p_other, training=self.training)
 
         # 1. Obtain node embeddings
         x = self.conv1(x, data.edge_index)
@@ -163,12 +170,13 @@ class CurvatureGraphNN(torch.nn.Module):
         x = self.conv2(x, data.edge_index)
         x = x.relu()
         x = self.conv3(x, data.edge_index)
+        x = x.relu()
 
         # 2. Readout layer
         x = global_mean_pool(x, data.batch)  # [batch_size, d_hidden]
 
         # 3. Apply a final classifier
-        x = torch.nn.functional.dropout(x, p=0.6, training=self.training)
+        x = torch.nn.functional.dropout(x, p=self.p_other, training=self.training)
         x = self.lin(x)
         x = torch.nn.functional.log_softmax(x, dim=1)
         return x
@@ -179,7 +187,7 @@ class CurvatureGraphNN(torch.nn.Module):
         :param data:
         :return:
         """
-        x = torch.nn.functional.dropout(data.x, p=0.6, training=self.training)
+        x = torch.nn.functional.dropout(data.x, p=self.p_other, training=self.training)
 
         # 1. Obtain node embeddings
         x = self.conv1(x, data.edge_index)
@@ -189,12 +197,13 @@ class CurvatureGraphNN(torch.nn.Module):
         x = self.conv3(x, data.edge_index)
         x = x.relu()
         x = self.conv4(x, data.edge_index)
+        x = x.relu()
 
         # 2. Readout layer
         x = global_mean_pool(x, data.batch)  # [batch_size, d_hidden]
 
         # 3. Apply a final classifier
-        x = torch.nn.functional.dropout(x, p=0.6, training=self.training)
+        x = torch.nn.functional.dropout(x, p=self.p_other, training=self.training)
         x = self.lin(x)
         x = torch.nn.functional.log_softmax(x, dim=1)
         return x
@@ -206,7 +215,7 @@ class CurvatureGraphNN(torch.nn.Module):
         :param data:
         :return:
         """
-        x = torch.nn.functional.dropout(data.x, p=0.6, training=self.training)
+        x = torch.nn.functional.dropout(data.x, p=self.p_other, training=self.training)
 
         # 1. Obtain node embeddings
         x = self.conv1(x, data.edge_index)
@@ -223,7 +232,7 @@ class CurvatureGraphNN(torch.nn.Module):
         x = global_mean_pool(x, data.batch)
 
         # 3. Apply a final classifier
-        x = torch.nn.functional.dropout(x, p=0.6, training=self.training)
+        x = torch.nn.functional.dropout(x, p=self.p_other, training=self.training)
         x = self.lin(x)
         x = torch.nn.functional.log_softmax(x, dim=1)
         return x
@@ -244,7 +253,7 @@ class CurvatureGraphNN(torch.nn.Module):
         x = global_mean_pool(x, data.batch)  # [batch_size, d_hidden]
 
         # 3. Apply a final classifier
-        x = torch.nn.functional.dropout(x, p=0.6, training=self.training)
+        x = torch.nn.functional.dropout(x, p=self.p_other, training=self.training)
         x = self.lin(x)
         x = torch.nn.functional.log_softmax(x, dim=1)
         return x

@@ -106,26 +106,27 @@ def train_rgcn(config, checkpoint_dir=None):
     print("Finished Training")
 
 
-def main(num_samples=1296, max_num_epochs=50, gpus_per_trial=1):
+def main(num_samples=3456, max_num_epochs=50, gpus_per_trial=1):
     config = {
         "lr": tune.choice([0.001, 0.01, 0.05, 0.1]),  # 4
-        "weight_decay": tune.choice([0, 0.01, 0.1]),  # 3
+        "weight_decay": tune.choice([0, 0.1]),  # 2
         "momentum": tune.choice([0, 0.1, 0.5]),  # 3
         "d_hidden": tune.choice([32, 64, 128]),  # 3
-        "p": tune.choice([0.2, 0.4]),  # 2
-        "version": tune.choice(['v0', 'v1', 'v2', 'v3', 'v4', 'v5']),  # 6
-        "epochs": 30,
+        "p": tune.choice([0, 0.4]),  # 2
+        "version": tune.choice(['v0', 'v1', 'v2', 'v3']),  # 4
+        "epochs": tune.choice([5, 50]),  # 2
+        "mp_factor": tune.choice([0, 1, 10])  # 3
     }
     scheduler = ASHAScheduler(
         max_t=max_num_epochs,
-        grace_period=4,
+        grace_period=5,
         reduction_factor=2)
     result = tune.run(
         tune.with_parameters(train_rgcn),
-        resources_per_trial={"cpu": 12, "gpu": gpus_per_trial},
+        resources_per_trial={"cpu": 24, "gpu": gpus_per_trial},
         config=config,
-        metric="loss",
-        mode="min",
+        metric="accuracy",
+        mode="max",
         num_samples=num_samples,
         scheduler=scheduler
     )
