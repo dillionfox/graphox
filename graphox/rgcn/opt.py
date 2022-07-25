@@ -1,119 +1,140 @@
-from functools import partial
-import numpy as np
 import os
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
-from torch.utils.data import random_split
-import torchvision
-import torchvision.transforms as transforms
-from ray import tune
-from ray.tune import CLIReporter
-from ray.tune.schedulers import ASHAScheduler
-
-from datetime import datetime
 import random
 
 import torch
-from graphox.rgcn.data.immotion.immotion_dataset import ImMotionDataset
-from graphox.rgcn.src import CurvatureGraph, CurvatureValues, CurvatureGraphNN
-from graphox.rgcn.rgcn import train, test
+import torch.nn as nn
+import torch.optim as optim
+from ray import tune
+from ray.tune.schedulers import ASHAScheduler
 from torch_geometric.loader import DataLoader
-from torch.utils.data.dataloader import default_collate
 
-from typing import Any
+from graphox.dataloader.immotion_dataset import ImMotionDataset
+from graphox.rgcn.src import CurvatureGraph, CurvatureValues
 
 
-def train_rgcn(config: dict,
-               num_trials: int = 10) -> None:
+def train_rgcn(config, checkpoint_dir=None):
+    r"""Main function for hyperparameter optimization
 
-    pt_graphs_path = '/home/dfox/code/graphox/output/pt_graphs'
+    :param config:
+    :param checkpoint_dir:
+    :return:
+    """
+    data_dir = '/home/dfox/code/graphox/output/pt_graphs'
     edge_curvatures_file_path = '/home/dfox/code/graphox/output/pt_edge_curvatures.csv'
 
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    train_dataset = ImMotionDataset(data_dir, subset='train')
+    test_dataset = ImMotionDataset(data_dir, subset='test')
+    curvature_values = CurvatureValues(train_dataset[0].num_nodes,
+                                       ricci_filename=edge_curvatures_file_path).w_mul
 
-    # Slurp up pyg graphs into pyg Dataset
-    data_raw = ImMotionDataset(pt_graphs_path)
+    # Instantiate CurvatureGraph object with graph topology and edge curvatures
+    sample_graph = train_dataset[0]
+    curvature_graph_obj = CurvatureGraph(sample_graph,
+                                         curvature_values,
+                                         d_hidden=config['d_hidden'],
+                                         p=config['p'],
+                                         version=config['version'],
+                                         mp_factor=config['mp_factor'])
+    net = curvature_graph_obj.call()
 
-    number_patients = data_raw.len()
-    patient_indices = list(range(number_patients))
+    device = "cpu"
+    if torch.cuda.is_available():
+        device = "cuda:0"
+        if torch.cuda.device_count() > 1:
+            net = nn.DataParallel(net)
 
-    train_fraction = 0.9
-    number_train_points = int(number_patients * train_fraction)
+    # Construct RGCN model
+    net.to(device)
 
-    train_indices = random.sample(patient_indices, number_train_points)
-    test_indices = list(set(patient_indices) - set(train_indices))
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.SGD(
+        net.parameters(),
+        lr=config["lr"],
+        weight_decay=config['weight_decay'],
+        momentum=config['momentum'])
 
-    # Split into test/train
-    train_dataset = data_raw[train_indices]
-    test_dataset = data_raw[test_indices]
+    # The `checkpoint_dir` parameter gets passed by Ray Tune when a checkpoint
+    # should be restored.
+    if checkpoint_dir:
+        checkpoint = os.path.join(checkpoint_dir, "checkpoint")
+        model_state, optimizer_state = torch.load(checkpoint)
+        net.load_state_dict(model_state)
+        optimizer.load_state_dict(optimizer_state)
 
     # Convert test/train sets to Data Loaders
-    train_data = DataLoader(train_dataset, batch_size=1, shuffle=True)
-    test_data = DataLoader(test_dataset, batch_size=1, shuffle=False)
+    trainloader = DataLoader(train_dataset, batch_size=1, shuffle=True)
+    valloader = DataLoader(test_dataset, batch_size=1, shuffle=False)
 
-    # Structure edge curvatures in CurvatureValues instance
-    curvature_values = CurvatureValues(data_raw[0].num_nodes, ricci_filename=edge_curvatures_file_path).w_mul
+    for epoch in range(config['epochs']):  # loop over the dataset multiple times
 
-    # Train 'num_trials' models
-    loss = None
-    train_acc = None
-    for i in range(num_trials):
+        for i, data in enumerate(trainloader):
+            inputs, labels = data.x, data.y
+            inputs, labels = inputs.to(device), labels.to(device)
 
-        # Instantiate CurvatureGraph object with graph topology and edge curvatures
-        sample_graph = data_raw[0]
-        curvature_graph_obj = CurvatureGraph(sample_graph, curvature_values, device=device)
+            # zero the parameter gradients
+            optimizer.zero_grad()
 
-        # Construct RGCN model
-        model = curvature_graph_obj.call()
+            # forward + backward + optimize
+            outputs = net(data)
+            loss = criterion(outputs.cpu(), labels.cpu().long())
+            loss.backward()
+            optimizer.step()
 
-        # Initialize optimizer and loss function
-        optimizer = torch.optim.Adam(model.parameters(),
-                                     lr=config['learning_rate'],
-                                     weight_decay=config['weight_decay'],
-                                     )
+        # Validation loss
+        val_loss = 0.0
+        val_steps = 0
+        total = 0
+        correct = 0
+        for i, data in enumerate(valloader, 0):
+            with torch.no_grad():
+                inputs, labels = data.x, data.y
+                inputs, labels = inputs.to(device), labels.to(device)
 
-        # Train model and compute metrics
-        for epoch in range(100):
-            t_initial = datetime.now()
-            model, optimizer, loss = train(train_data, model, optimizer, device)
-            train_acc = test(train_data, model)
-            test_acc = test(test_data, model)
-            t_final = datetime.now()
+                outputs = net(data)
+                _, predicted = torch.max(outputs.data, 1)
+                total += labels.size(0)
+                correct += (predicted == labels).sum().item()
 
-        with tune.checkpoint_dir(i) as checkpoint_dir:
+                loss = criterion(outputs.cpu(), labels.cpu().long())
+                val_loss += loss.cpu().numpy()
+                val_steps += 1
+
+        # Here we save a checkpoint. It is automatically registered with
+        # Ray Tune and will potentially be passed as the `checkpoint_dir`
+        # parameter in future iterations.
+        with tune.checkpoint_dir(step=epoch) as checkpoint_dir:
             path = os.path.join(checkpoint_dir, "checkpoint")
-            torch.save((model.state_dict(), optimizer.state_dict()), path)
+            torch.save(
+                (net.state_dict(), optimizer.state_dict()), path)
 
-        tune.report(loss=loss, accuracy=train_acc)
+        tune.report(loss=(val_loss / val_steps), accuracy=correct / total)
+    print("Finished Training")
 
 
-def main():
-
+def main(num_samples=3456, max_num_epochs=50, gpus_per_trial=1):
     config = {
-        "learning_rate": tune.loguniform(1e-4, 1e-1),
-        "weight_decay": tune.uniform(0, 1e-1),
+        "lr": tune.choice([0.001, 0.01, 0.05, 0.1]),  # 4
+        "weight_decay": tune.choice([0, 0.1]),  # 2
+        "momentum": tune.choice([0, 0.1, 0.5]),  # 3
+        "d_hidden": tune.choice([32, 64, 128]),  # 3
+        "p": tune.choice([0, 0.4]),  # 2
+        "version": tune.choice(['v0', 'v1', 'v2', 'v3']),  # 4
+        "epochs": tune.choice([5, 50]),  # 2
+        "mp_factor": tune.choice([0, 1, 10])  # 3
     }
-
     scheduler = ASHAScheduler(
-        metric="loss",
-        mode="min",
-        max_t=100,
-        grace_period=1,
+        max_t=max_num_epochs,
+        grace_period=5,
         reduction_factor=2)
-
-    reporter = CLIReporter(
-        metric_columns=["loss", "accuracy", "training_iteration"])
-
     result = tune.run(
-        partial(train_rgcn, num_trials=10),
-        resources_per_trial={"cpu": 4, "gpu": 1},
+        tune.with_parameters(train_rgcn),
+        resources_per_trial={"cpu": 24, "gpu": gpus_per_trial},
         config=config,
-        num_samples=10,
-        scheduler=scheduler,
-        progress_reporter=reporter,
-        checkpoint_at_end=True)
+        metric="accuracy",
+        mode="max",
+        num_samples=num_samples,
+        scheduler=scheduler
+    )
 
     best_trial = result.get_best_trial("loss", "min", "last")
     print("Best trial config: {}".format(best_trial.config))
